@@ -2,66 +2,127 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <!-- ★ ファビコンの設定を追加 -->
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taikitter</title>
     <style>
         body { font-family: sans-serif; background-color: #f7f9f9; margin: 0; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background-color: #ffffff; min-height: 100vh; border-left: 1px solid #eff3f4; border-right: 1px solid #eff3f4; }
-        .header { padding: 15px; font-weight: bold; font-size: 1.2em; border-bottom: 1px solid #eff3f4; position: sticky; top: 0; background: rgba(255, 255, 255, 0.9); }
+        
+        /* --- ログイン画面のスタイル --- */
+        #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 50px 20px; }
+        .login-box { width: 80%; max-width: 300px; display: flex; flex-direction: column; gap: 15px; text-align: center; }
+        .login-box input { padding: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 5px; }
+        .login-box button { background-color: #0f1419; color: white; border: none; border-radius: 9999px; padding: 12px; font-weight: bold; font-size: 1em; cursor: pointer; }
+        .login-box button:hover { background-color: #272c30; }
+        .error-msg { color: red; font-size: 0.9em; display: none; }
+
+        /* --- タイムライン画面のスタイル --- */
+        .header { padding: 15px; font-weight: bold; font-size: 1.2em; border-bottom: 1px solid #eff3f4; position: sticky; top: 0; background: rgba(255, 255, 255, 0.9); display: flex; justify-content: space-between; align-items: center; }
+        .logout-btn { background-color: transparent; border: 1px solid #cfd9de; border-radius: 9999px; padding: 5px 15px; font-size: 0.8em; font-weight: bold; cursor: pointer; color: #0f1419; }
+        .logout-btn:hover { background-color: #eff3f4; }
         .post-box { padding: 15px; border-bottom: 1px solid #eff3f4; display: flex; flex-direction: column; }
-        .post-box input { width: 30%; padding: 5px; margin-bottom: 10px; border: 1px solid #eff3f4; border-radius: 5px; font-size: 1em; outline: none; }
         .post-box textarea { width: 100%; border: none; resize: none; font-size: 1.1em; outline: none; margin-bottom: 10px; }
         .post-box button { align-self: flex-end; background-color: #1d9bf0; color: white; border: none; border-radius: 9999px; padding: 10px 20px; font-weight: bold; cursor: pointer; }
         .post-box button:hover { background-color: #1a8cd8; }
         .post { padding: 15px; border-bottom: 1px solid #eff3f4; }
-        
-        /* ★名前と時間を横並びにするデザインを追加 */
         .post-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
         .post-name { font-weight: bold; }
         .post-time { font-size: 0.85em; color: #536471; }
-        
         .post-text { margin: 0; white-space: pre-wrap; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">ホーム</div>
+    <!-- 🔑 ログイン画面 -->
+    <div id="login-screen" class="container">
+        <div class="login-box">
+            <h2>Taikitterにログイン</h2>
+            <input type="text" id="usernameInput" placeholder="ユーザーID (例: user1)">
+            <input type="password" id="passwordInput" placeholder="パスワード (例: pass1)">
+            <div id="loginError" class="error-msg">IDかパスワードが違います</div>
+            <button onclick="login()">ログイン</button>
+        </div>
+    </div>
+
+    <!-- 📱 タイムライン画面（初期状態では非表示） -->
+    <div id="main-screen" class="container" style="display: none;">
+        <div class="header">
+            ホーム
+            <button class="logout-btn" onclick="logout()">ログアウト</button>
+        </div>
+        
         <div class="post-box">
-            <input type="text" id="nameInput" placeholder="名前 (例: 友達A)">
-            <textarea id="contentInput" rows="3" placeholder="いまどうしてる？"></textarea>
+            <!-- 名前入力欄は消え、テキストエリアだけになりました -->
+            <textarea id="contentInput" rows="3" placeholder="ごめんけどいまどうしてる？"></textarea>
             <button onclick="sendPost()">ポストする</button>
         </div>
         <div id="timeline"></div>
     </div>
 
     <script>
-        const API_URL = "/posts";
+        // ページを読み込んだら、まずログイン状態をチェックする
+        window.onload = checkLoginStatus;
 
-        async function loadPosts() {
-            const response = await fetch(API_URL);
-            const posts = await response.json();
+        // 状態をチェックする関数
+        async function checkLoginStatus() {
+            const response = await fetch("/me");
+            if (response.ok) {
+                // ログイン済みならメイン画面を表示
+                document.getElementById("login-screen").style.display = "none";
+                document.getElementById("main-screen").style.display = "block";
+                loadPosts();
+            } else {
+                // 未ログインならログイン画面を表示
+                document.getElementById("login-screen").style.display = "flex";
+                document.getElementById("main-screen").style.display = "none";
+            }
+        }
+
+        // ログイン処理
+        async function login() {
+            const user = document.getElementById("usernameInput").value;
+            const pass = document.getElementById("passwordInput").value;
             
+            const response = await fetch("/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: user, password: pass })
+            });
+
+            if (response.ok) {
+                document.getElementById("loginError").style.display = "none";
+                checkLoginStatus(); // 成功したら画面を切り替える
+            } else {
+                document.getElementById("loginError").style.display = "block";
+            }
+        }
+
+        // ログアウト処理
+        async function logout() {
+            await fetch("/logout", { method: "POST" });
+            checkLoginStatus(); // 画面をログイン画面に戻す
+            document.getElementById("usernameInput").value = "";
+            document.getElementById("passwordInput").value = "";
+        }
+
+        // タイムライン読み込み
+        async function loadPosts() {
+            const response = await fetch("/posts");
+            if (!response.ok) return; // ログインしていない場合は弾かれる
+            
+            const posts = await response.json();
             const timeline = document.getElementById("timeline");
             timeline.innerHTML = "";
 
             posts.forEach(post => {
-                // ★データベースの時間を、日本時間の読みやすい形式に変換する
                 const date = new Date(post.created_at + "Z");
-                const timeString = date.toLocaleString('ja-JP', {
-                    month: 'numeric',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
+                const timeString = date.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
                 const postDiv = document.createElement("div");
                 postDiv.className = "post";
-                // ★名前に加えて、変換した時間も表示するように変更
                 postDiv.innerHTML = `
                     <div class="post-header">
-                        <div class="post-name">${post.name}</div>
+                        <div class="post-name">@${post.name}</div>
                         <div class="post-time">${timeString}</div>
                     </div>
                     <div class="post-text">${post.content}</div>
@@ -70,26 +131,20 @@
             });
         }
 
+        // 投稿処理
         async function sendPost() {
-            const name = document.getElementById("nameInput").value;
             const content = document.getElementById("contentInput").value;
+            if (content === "") return;
 
-            if (name === "" || content === "") {
-                alert("名前と投稿内容を両方入力してください！");
-                return;
-            }
-
-            await fetch(API_URL, {
+            await fetch("/posts", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: name, content: content })
+                body: JSON.stringify({ content: content }) // 名前は送らない！
             });
 
             document.getElementById("contentInput").value = "";
             loadPosts();
         }
-
-        loadPosts();
     </script>
 </body>
 </html>
