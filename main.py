@@ -1,6 +1,7 @@
 
 import os
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -79,3 +80,8 @@ def create_post(post: Post):
     conn.commit()
     conn.close()
     return {"message": "投稿完了！"}
+
+# サイトにアクセスしたときにHTMLを表示する
+@app.get("/")
+def read_index():
+    return FileResponse("index.html")
