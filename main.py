@@ -84,3 +84,10 @@ def create_post(post: Post):
     conn.commit()
     conn.close()
     return {"message": "投稿完了！"}
+
+
+# ★ サイトのアイコン（ファビコン）を渡す設定
+@app.get("/favicon.ico")
+def get_favicon():
+    return FileResponse("favicon.ico") 
+
