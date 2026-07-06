@@ -71,7 +71,7 @@ def init_db():
         """)
     
     # 6人分の初期アカウント（初期状態では画像データは空っぽにします）
-    friends = ["user1", "user2", "user3", "user4", "user5", "user6"]
+    friends = ["たいき", "たくと", "ひかる", "ゆうき", "ゆうせい", "わく"]
     for i, username in enumerate(friends, 1):
         try:
             if DB_URL:
