@@ -8,22 +8,24 @@ from datetime import datetime, timezone
 
 app = FastAPI()
 
-# フロントエンドからの通信を許可
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
-    allow_credentials=True, # クッキー（ログイン情報）のやり取りを許可
+    allow_credentials=True,
 )
 
-# データの形を定義
 class LoginData(BaseModel):
     username: str
     password: str
 
 class PostData(BaseModel):
     content: str
+
+# ★ アイコンURLを変更するためのデータ構造
+class UpdateIconData(BaseModel):
+    icon_url: str
 
 DB_URL = os.environ.get("DATABASE_URL")
 
@@ -38,16 +40,17 @@ def init_db():
     conn = get_db_connection()
     c = conn.cursor()
     
-    # 1. ユーザー管理用のテーブル（users）を作成
+    # ユーザーテーブルに「icon_url（アイコン画像）」の保存欄を追加 (posts_v4にバージョンアップ)
     if DB_URL:
         c.execute("""
-            CREATE TABLE IF NOT EXISTS users (
+            CREATE TABLE IF NOT EXISTS users_v4 (
                 username TEXT PRIMARY KEY,
-                password TEXT
+                password TEXT,
+                icon_url TEXT
             )
         """)
         c.execute("""
-            CREATE TABLE IF NOT EXISTS posts_v3 (
+            CREATE TABLE IF NOT EXISTS posts_v4 (
                 id SERIAL PRIMARY KEY,
                 name TEXT,
                 content TEXT,
@@ -56,13 +59,14 @@ def init_db():
         """)
     else:
         c.execute("""
-            CREATE TABLE IF NOT EXISTS users (
+            CREATE TABLE IF NOT EXISTS users_v4 (
                 username TEXT PRIMARY KEY,
-                password TEXT
+                password TEXT,
+                icon_url TEXT
             )
         """)
         c.execute("""
-            CREATE TABLE IF NOT EXISTS posts_v3 (
+            CREATE TABLE IF NOT EXISTS posts_v4 (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT,
                 content TEXT,
@@ -70,22 +74,21 @@ def init_db():
             )
         """)
     
-    # 2. 友達6人分の初期アカウントを登録（すでに無ければ追加）
-    # ※ password は簡易的に平文で保存していますが、身内用として機能します
+    # 6人分の初期アカウント（可愛い動物のフリーアイコンを初期値にしています）
     friends = [
-        ("user1", "pass1"),
-        ("user2", "pass2"),
-        ("user3", "pass3"),
-        ("user4", "pass4"),
-        ("user5", "pass5"),
-        ("user6", "pass6")
+        ("user1", "pass1", "https://api.dicebear.com/7.x/bottts/svg?seed=user1"),
+        ("user2", "pass2", "https://api.dicebear.com/7.x/bottts/svg?seed=user2"),
+        ("user3", "pass3", "https://api.dicebear.com/7.x/bottts/svg?seed=user3"),
+        ("user4", "pass4", "https://api.dicebear.com/7.x/bottts/svg?seed=user4"),
+        ("user5", "pass5", "https://api.dicebear.com/7.x/bottts/svg?seed=user5"),
+        ("user6", "pass6", "https://api.dicebear.com/7.x/bottts/svg?seed=user6")
     ]
-    for username, password in friends:
+    for username, password, icon in friends:
         try:
             if DB_URL:
-                c.execute("INSERT INTO users (username, password) VALUES (%s, %s) ON CONFLICT DO NOTHING", (username, password))
+                c.execute("INSERT INTO users_v4 (username, password, icon_url) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING", (username, password, icon))
             else:
-                c.execute("INSERT INTO users (username, password) VALUES (?, ?) OR IGNORE", (username, password))
+                c.execute("INSERT INTO users_v4 (username, password, icon_url) VALUES (?, ?, ?) OR IGNORE", (username, password, icon))
         except:
             pass
 
@@ -94,69 +97,100 @@ def init_db():
 
 init_db()
 
-# 🔑 ログインしているかチェックする共通関数（クッキーから名前を読み取る）
 def get_current_user(request: Request):
     username = request.cookies.get("session_user")
     if not username:
         raise HTTPException(status_code=401, detail="ログインが必要です")
     return username
 
-# ① ログイン処理（IDとパスワードが合っていれば、クッキーに名前を刻む）
+# ★ ログイン画面に一覧表示するために、ユーザー名とアイコンのリストを返すAPI
+@app.get("/users")
+def get_users():
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT username, icon_url FROM users_v4")
+    users = [{"username": row[0], "icon_url": row[1]} for row in c.fetchall()]
+    conn.close()
+    return users
+
 @app.post("/login")
 def login(data: LoginData, response: Response):
     conn = get_db_connection()
     c = conn.cursor()
     if DB_URL:
-        c.execute("SELECT password FROM users WHERE username = %s", (data.username,))
+        c.execute("SELECT password FROM users_v4 WHERE username = %s", (data.username,))
     else:
-        c.execute("SELECT password FROM users WHERE username = ?", (data.username,))
+        c.execute("SELECT password FROM users_v4 WHERE username = ?", (data.username,))
     row = c.fetchone()
     conn.close()
 
     if row and row[0] == data.password:
-        # ログイン成功：ブラウザにクッキーを保存させる
         response.set_cookie(key="session_user", value=data.username, max_age=2592000, httponly=True, samesite="lax")
-        return {"message": "ログイン成功！", "username": data.username}
+        return {"message": "ログイン成功！"}
     else:
-        raise HTTPException(status_code=400, detail="ユーザー名またはパスワードが違います")
+        raise HTTPException(status_code=400, detail="パスワードが違います")
 
-# ② ログアウト処理（クッキーを消す）
 @app.post("/logout")
 def logout(response: Response):
     response.delete_cookie(key="session_user")
     return {"message": "ログアウトしました"}
 
-# ③ ログイン中のユーザー情報を取得するAPI
+# ★ ログインユーザーのアイコン情報も一緒に返すように強化
 @app.get("/me")
 def get_me(username: str = Depends(get_current_user)):
-    return {"username": username}
+    conn = get_db_connection()
+    c = conn.cursor()
+    if DB_URL:
+        c.execute("SELECT icon_url FROM users_v4 WHERE username = %s", (username,))
+    else:
+        c.execute("SELECT icon_url FROM users_v4 WHERE username = ?", (username,))
+    row = c.fetchone()
+    conn.close()
+    icon_url = row[0] if row else ""
+    return {"username": username, "icon_url": icon_url}
 
-# ④ タイムライン取得（ログイン中のみ許可）
+# ★ アイコンのURLを更新するAPI
+@app.post("/me/icon")
+def update_icon(data: UpdateIconData, username: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    c = conn.cursor()
+    if DB_URL:
+        c.execute("UPDATE users_v4 SET icon_url = %s WHERE username = %s", (data.icon_url, username))
+    else:
+        c.execute("UPDATE users_v4 SET icon_url = ? WHERE username = ?", (data.icon_url, username))
+    conn.commit()
+    conn.close()
+    return {"message": "アイコンを更新しました"}
+
+# ★ タイムライン取得（投稿者の現在のアイコンも一緒に持ってくる）
 @app.get("/posts")
 def get_posts(username: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT name, content, created_at FROM posts_v3 ORDER BY id DESC")
-    posts = [{"name": row[0], "content": row[1], "created_at": row[2]} for row in c.fetchall()]
+    # 投稿(posts_v4)とユーザー情報(users_v4)を合体させて、最新のアイコンを取得する
+    c.execute("""
+        SELECT p.name, p.content, p.created_at, u.icon_url 
+        FROM posts_v4 p
+        LEFT JOIN users_v4 u ON p.name = u.username
+        ORDER BY p.id DESC
+    """)
+    posts = [{"name": row[0], "content": row[1], "created_at": row[2], "icon_url": row[3]} for row in c.fetchall()]
     conn.close()
     return posts
 
-# ⑤ 新規投稿（ログイン中の名前を自動で使うので、nameの送信は不要！）
 @app.post("/posts")
 def create_post(post: PostData, username: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-    
     if DB_URL:
-        c.execute("INSERT INTO posts_v3 (name, content, created_at) VALUES (%s, %s, %s)", (username, post.content, now))
+        c.execute("INSERT INTO posts_v4 (name, content, created_at) VALUES (%s, %s, %s)", (username, post.content, now))
     else:
-        c.execute("INSERT INTO posts_v3 (name, content, created_at) VALUES (?, ?, ?)", (username, post.content, now))
+        c.execute("INSERT INTO posts_v4 (name, content, created_at) VALUES (?, ?, ?)", (username, post.content, now))
     conn.commit()
     conn.close()
     return {"message": "投稿完了！"}
 
-# 画面とアイコンの配信
 @app.get("/")
 def read_index():
     return FileResponse("index.html")
