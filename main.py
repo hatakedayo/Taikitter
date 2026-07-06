@@ -1,9 +1,9 @@
 import os
 import sqlite3
-from fastapi import FastAPI, Depends, HTTPException, status, Response, Request
+from fastapi import FastAPI, Depends, HTTPException, status, Response, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, Response as FastAPIResponse
 from datetime import datetime, timezone
 
 app = FastAPI()
@@ -23,10 +23,6 @@ class LoginData(BaseModel):
 class PostData(BaseModel):
     content: str
 
-# ★ アイコンURLを変更するためのデータ構造
-class UpdateIconData(BaseModel):
-    icon_url: str
-
 DB_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
@@ -40,17 +36,17 @@ def init_db():
     conn = get_db_connection()
     c = conn.cursor()
     
-    # ユーザーテーブルに「icon_url（アイコン画像）」の保存欄を追加 (posts_v4にバージョンアップ)
+    # ★ ユーザーテーブルをv5にアップデート（icon_dataに画像をバイナリとして直接保存できるようにします）
     if DB_URL:
         c.execute("""
-            CREATE TABLE IF NOT EXISTS users_v4 (
+            CREATE TABLE IF NOT EXISTS users_v5 (
                 username TEXT PRIMARY KEY,
                 password TEXT,
-                icon_url TEXT
+                icon_data BYTEA
             )
         """)
         c.execute("""
-            CREATE TABLE IF NOT EXISTS posts_v4 (
+            CREATE TABLE IF NOT EXISTS posts_v5 (
                 id SERIAL PRIMARY KEY,
                 name TEXT,
                 content TEXT,
@@ -59,14 +55,14 @@ def init_db():
         """)
     else:
         c.execute("""
-            CREATE TABLE IF NOT EXISTS users_v4 (
+            CREATE TABLE IF NOT EXISTS users_v5 (
                 username TEXT PRIMARY KEY,
                 password TEXT,
-                icon_url TEXT
+                icon_data BLOB
             )
         """)
         c.execute("""
-            CREATE TABLE IF NOT EXISTS posts_v4 (
+            CREATE TABLE IF NOT EXISTS posts_v5 (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT,
                 content TEXT,
@@ -74,21 +70,14 @@ def init_db():
             )
         """)
     
-    # 6人分の初期アカウント（可愛い動物のフリーアイコンを初期値にしています）
-    friends = [
-        ("user1", "pass1", "https://api.dicebear.com/7.x/bottts/svg?seed=user1"),
-        ("user2", "pass2", "https://api.dicebear.com/7.x/bottts/svg?seed=user2"),
-        ("user3", "pass3", "https://api.dicebear.com/7.x/bottts/svg?seed=user3"),
-        ("user4", "pass4", "https://api.dicebear.com/7.x/bottts/svg?seed=user4"),
-        ("user5", "pass5", "https://api.dicebear.com/7.x/bottts/svg?seed=user5"),
-        ("user6", "pass6", "https://api.dicebear.com/7.x/bottts/svg?seed=user6")
-    ]
-    for username, password, icon in friends:
+    # 6人分の初期アカウント（初期状態では画像データは空っぽにします）
+    friends = ["user1", "user2", "user3", "user4", "user5", "user6"]
+    for i, username in enumerate(friends, 1):
         try:
             if DB_URL:
-                c.execute("INSERT INTO users_v4 (username, password, icon_url) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING", (username, password, icon))
+                c.execute("INSERT INTO users_v5 (username, password) VALUES (%s, %s) ON CONFLICT DO NOTHING", (username, f"pass{i}"))
             else:
-                c.execute("INSERT INTO users_v4 (username, password, icon_url) VALUES (?, ?, ?) OR IGNORE", (username, password, icon))
+                c.execute("INSERT INTO users_v5 (username, password) VALUES (?, ?) OR IGNORE", (username, f"pass{i}"))
         except:
             pass
 
@@ -103,24 +92,47 @@ def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail="ログインが必要です")
     return username
 
-# ★ ログイン画面に一覧表示するために、ユーザー名とアイコンのリストを返すAPI
+# ログイン画面用にユーザー一覧を返すAPI
 @app.get("/users")
 def get_users():
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT username, icon_url FROM users_v4")
-    users = [{"username": row[0], "icon_url": row[1]} for row in c.fetchall()]
+    c.execute("SELECT username FROM users_v5")
+    users = [{"username": row[0]} for row in c.fetchall()]
     conn.close()
     return users
+
+# ★ 特定のユーザーのアイコン画像データを直接ブラウザに返すAPI
+@app.get("/users/{username}/icon")
+def get_user_icon(username: str):
+    conn = get_db_connection()
+    c = conn.cursor()
+    if DB_URL:
+        c.execute("SELECT icon_data FROM users_v5 WHERE username = %s", (username,))
+    else:
+        c.execute("SELECT icon_data FROM users_v5 WHERE username = ?", (username,))
+    row = c.fetchone()
+    conn.close()
+    
+    # もし画像がまだ登録されていない場合は、ロボットのダミー画像を返す
+    if row and row[0]:
+        # PostgreSQL(psycopg2)とSQLiteでバイナリの扱いが少し異なる場合の対策
+        img_bytes = bytes(row[0]) if isinstance(row[0], memoryview) else row[0]
+        return FastAPIResponse(content=img_bytes, media_type="image/jpeg")
+    else:
+        # デフォルトのSVGアイコン（ロボット）を返す
+        import requests
+        svg = requests.get(f"https://api.dicebear.com/7.x/bottts/svg?seed={username}").text
+        return FastAPIResponse(content=svg, media_type="image/svg+xml")
 
 @app.post("/login")
 def login(data: LoginData, response: Response):
     conn = get_db_connection()
     c = conn.cursor()
     if DB_URL:
-        c.execute("SELECT password FROM users_v4 WHERE username = %s", (data.username,))
+        c.execute("SELECT password FROM users_v5 WHERE username = %s", (data.username,))
     else:
-        c.execute("SELECT password FROM users_v4 WHERE username = ?", (data.username,))
+        c.execute("SELECT password FROM users_v5 WHERE username = ?", (data.username,))
     row = c.fetchone()
     conn.close()
 
@@ -135,46 +147,35 @@ def logout(response: Response):
     response.delete_cookie(key="session_user")
     return {"message": "ログアウトしました"}
 
-# ★ ログインユーザーのアイコン情報も一緒に返すように強化
 @app.get("/me")
 def get_me(username: str = Depends(get_current_user)):
-    conn = get_db_connection()
-    c = conn.cursor()
-    if DB_URL:
-        c.execute("SELECT icon_url FROM users_v4 WHERE username = %s", (username,))
-    else:
-        c.execute("SELECT icon_url FROM users_v4 WHERE username = ?", (username,))
-    row = c.fetchone()
-    conn.close()
-    icon_url = row[0] if row else ""
-    return {"username": username, "icon_url": icon_url}
+    return {"username": username}
 
-# ★ アイコンのURLを更新するAPI
+# ★ 自前の画像ファイル（UploadFile）を受け取って、データベースにバイナリとして保存するAPI
 @app.post("/me/icon")
-def update_icon(data: UpdateIconData, username: str = Depends(get_current_user)):
+async def update_icon(file: UploadFile = File(...), username: str = Depends(get_current_user)):
+    # アップロードされた画像データを読み込む
+    file_bytes = await file.read()
+    
     conn = get_db_connection()
     c = conn.cursor()
     if DB_URL:
-        c.execute("UPDATE users_v4 SET icon_url = %s WHERE username = %s", (data.icon_url, username))
+        # PostgreSQLはバイナリデータを格納する際にpsycopg2.Binaryで包む
+        import psycopg2
+        c.execute("UPDATE users_v5 SET icon_data = %s WHERE username = %s", (psycopg2.Binary(file_bytes), username))
     else:
-        c.execute("UPDATE users_v4 SET icon_url = ? WHERE username = ?", (data.icon_url, username))
+        c.execute("UPDATE users_v5 SET icon_data = ? WHERE username = ?", (file_bytes, username))
     conn.commit()
     conn.close()
     return {"message": "アイコンを更新しました"}
 
-# ★ タイムライン取得（投稿者の現在のアイコンも一緒に持ってくる）
+# タイムライン取得
 @app.get("/posts")
 def get_posts(username: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
-    # 投稿(posts_v4)とユーザー情報(users_v4)を合体させて、最新のアイコンを取得する
-    c.execute("""
-        SELECT p.name, p.content, p.created_at, u.icon_url 
-        FROM posts_v4 p
-        LEFT JOIN users_v4 u ON p.name = u.username
-        ORDER BY p.id DESC
-    """)
-    posts = [{"name": row[0], "content": row[1], "created_at": row[2], "icon_url": row[3]} for row in c.fetchall()]
+    c.execute("SELECT name, content, created_at FROM posts_v5 ORDER BY id DESC")
+    posts = [{"name": row[0], "content": row[1], "created_at": row[2]} for row in c.fetchall()]
     conn.close()
     return posts
 
@@ -184,9 +185,9 @@ def create_post(post: PostData, username: str = Depends(get_current_user)):
     c = conn.cursor()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     if DB_URL:
-        c.execute("INSERT INTO posts_v4 (name, content, created_at) VALUES (%s, %s, %s)", (username, post.content, now))
+        c.execute("INSERT INTO posts_v5 (name, content, created_at) VALUES (%s, %s, %s)", (username, post.content, now))
     else:
-        c.execute("INSERT INTO posts_v4 (name, content, created_at) VALUES (?, ?, ?)", (username, post.content, now))
+        c.execute("INSERT INTO posts_v5 (name, content, created_at) VALUES (?, ?, ?)", (username, post.content, now))
     conn.commit()
     conn.close()
     return {"message": "投稿完了！"}
