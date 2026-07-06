@@ -3,150 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini X</title>
+    <title>Taikitter</title>
     <style>
-        /* 画面全体のデザイン */
-        body {
-            font-family: sans-serif;
-            background-color: #f7f9f9;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-        }
-        .container {
-            width: 100%;
-            max-width: 600px;
-            background-color: #ffffff;
-            min-height: 100vh;
-            border-left: 1px solid #eff3f4;
-            border-right: 1px solid #eff3f4;
-        }
-        .header {
-            padding: 15px;
-            font-weight: bold;
-            font-size: 1.2em;
-            border-bottom: 1px solid #eff3f4;
-            position: sticky;
-            top: 0;
-            background: rgba(255, 255, 255, 0.9);
-        }
-        .post-box {
-            padding: 15px;
-            border-bottom: 1px solid #eff3f4;
-            display: flex;
-            flex-direction: column;
-        }
-        /* 名前入力欄のスタイルを追加 */
-        .post-box input {
-            width: 30%;
-            padding: 5px;
-            margin-bottom: 10px;
-            border: 1px solid #eff3f4;
-            border-radius: 5px;
-            font-size: 1em;
-            outline: none;
-        }
-        .post-box textarea {
-            width: 100%;
-            border: none;
-            resize: none;
-            font-size: 1.1em;
-            outline: none;
-            margin-bottom: 10px;
-        }
-        .post-box button {
-            align-self: flex-end;
-            background-color: #1d9bf0;
-            color: white;
-            border: none;
-            border-radius: 9999px;
-            padding: 10px 20px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .post-box button:hover {
-            background-color: #1a8cd8;
-        }
-        .post {
-            padding: 15px;
-            border-bottom: 1px solid #eff3f4;
-        }
-        .post-name {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .post-text {
-            margin: 0;
-            white-space: pre-wrap; /* 改行を反映させる */
-        }
+        body { font-family: sans-serif; background-color: #f7f9f9; margin: 0; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 600px; background-color: #ffffff; min-height: 100vh; border-left: 1px solid #eff3f4; border-right: 1px solid #eff3f4; }
+        .header { padding: 15px; font-weight: bold; font-size: 1.2em; border-bottom: 1px solid #eff3f4; position: sticky; top: 0; background: rgba(255, 255, 255, 0.9); }
+        .post-box { padding: 15px; border-bottom: 1px solid #eff3f4; display: flex; flex-direction: column; }
+        .post-box input { width: 30%; padding: 5px; margin-bottom: 10px; border: 1px solid #eff3f4; border-radius: 5px; font-size: 1em; outline: none; }
+        .post-box textarea { width: 100%; border: none; resize: none; font-size: 1.1em; outline: none; margin-bottom: 10px; }
+        .post-box button { align-self: flex-end; background-color: #1d9bf0; color: white; border: none; border-radius: 9999px; padding: 10px 20px; font-weight: bold; cursor: pointer; }
+        .post-box button:hover { background-color: #1a8cd8; }
+        .post { padding: 15px; border-bottom: 1px solid #eff3f4; }
+        
+        /* ★名前と時間を横並びにするデザインを追加 */
+        .post-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+        .post-name { font-weight: bold; }
+        .post-time { font-size: 0.85em; color: #536471; }
+        
+        .post-text { margin: 0; white-space: pre-wrap; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">ホーム</div>
-        
-        <!-- 投稿エリア -->
         <div class="post-box">
             <input type="text" id="nameInput" placeholder="名前 (例: 友達A)">
             <textarea id="contentInput" rows="3" placeholder="いまどうしてる？"></textarea>
             <button onclick="sendPost()">ポストする</button>
         </div>
-
-        <!-- タイムラインエリア（JavaScriptでここに追加されていきます） -->
         <div id="timeline"></div>
     </div>
 
     <script>
-        // PythonのAPIサーバーのURL
         const API_URL = "/posts";
 
-        // タイムラインを読み込む関数
         async function loadPosts() {
-            // APIからデータを取得
             const response = await fetch(API_URL);
             const posts = await response.json();
             
             const timeline = document.getElementById("timeline");
-            timeline.innerHTML = ""; // いったん中身を空にする
+            timeline.innerHTML = "";
 
-            // 取得した投稿を1つずつHTMLにして追加する
             posts.forEach(post => {
+                // ★データベースの時間を、日本時間の読みやすい形式に変換する
+                const date = new Date(post.created_at + "Z");
+                const timeString = date.toLocaleString('ja-JP', {
+                    month: 'numeric',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
                 const postDiv = document.createElement("div");
                 postDiv.className = "post";
+                // ★名前に加えて、変換した時間も表示するように変更
                 postDiv.innerHTML = `
-                    <div class="post-name">${post.name}</div>
+                    <div class="post-header">
+                        <div class="post-name">${post.name}</div>
+                        <div class="post-time">${timeString}</div>
+                    </div>
                     <div class="post-text">${post.content}</div>
                 `;
                 timeline.appendChild(postDiv);
             });
         }
 
-        // ポストを送信する関数
         async function sendPost() {
             const name = document.getElementById("nameInput").value;
             const content = document.getElementById("contentInput").value;
 
-            // 空のまま投稿できないようにする
             if (name === "" || content === "") {
                 alert("名前と投稿内容を両方入力してください！");
                 return;
             }
 
-            // APIにデータを送信 (POST)
             await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ name: name, content: content })
             });
 
-            // 入力欄を空にする
             document.getElementById("contentInput").value = "";
-
-            // タイムラインを最新の状態に更新する
             loadPosts();
         }
 
-        // ページを開いたときに、自動でタイムラインを読み込む
         loadPosts();
     </script>
 </body>
