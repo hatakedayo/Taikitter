@@ -50,9 +50,12 @@ def init_db():
         c.execute("CREATE TABLE IF NOT EXISTS views (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
     
     friends = [
-        ("太郎", "taro123"),
-        ("花子", "hana456"),
-        ("健司", "ken789")
+        ("たいき", "0000"),
+        ("たくと", "0000"),
+        ("ひかる", "0000"),
+        ("ゆうき", "0000"),
+        ("ゆうせい", "0000"),
+        ("わく", "0000"),
     ]
     
     for username, password in friends:
