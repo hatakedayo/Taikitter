@@ -269,3 +269,9 @@ def get_custom_icon(filename: str):
     if filename in ["kitsu_pink.ico", "kitsu_gray.ico", "kitsu_disabled.ico"]:
         return FileResponse(filename)
     return {"error": "画像が見つかりません"}
+
+
+# ★ 新しく作ったCSSファイルを配る設定
+@app.get("/style.css")
+def get_css():
+    return FileResponse("style.css")
