@@ -6,23 +6,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from fastapi.responses import FileResponse, Response as FastAPIResponse
 from datetime import datetime, timezone
+from typing import Optional
 
 app = FastAPI()
 
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_credentials=True,
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
+    allow_headers=["*"], allow_credentials=True,
 )
 
 class LoginData(BaseModel):
     username: str
     password: str
 
+# ★ 投稿データに「親ポストのID（返信先）」を受け取れるようにしました
 class PostData(BaseModel):
     content: str
+    parent_id: Optional[int] = None
 
 DB_URL = os.environ.get("DATABASE_URL")
 
@@ -48,6 +48,12 @@ def init_db():
         c.execute("CREATE TABLE IF NOT EXISTS likes (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
         c.execute("CREATE TABLE IF NOT EXISTS views (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
     
+    # ★ 今までのデータを消さずに「返信先ID」の箱だけを安全に追加する魔法のコード
+    try:
+        c.execute("ALTER TABLE posts_v6 ADD COLUMN parent_id INTEGER DEFAULT NULL")
+    except:
+        pass # すでに追加されている場合はスルーします
+    
     # ★ ここは設定した友達の日本語名に書き換えてください
     friends = [
         ("たいき", "0000"),
@@ -57,16 +63,13 @@ def init_db():
         ("ゆうせい", "0000"),
         ("わく", "0000"),
     ]
-    
     for username, password in friends:
         try:
             if DB_URL:
                 c.execute("INSERT INTO users_v6 (username, password) VALUES (%s, %s) ON CONFLICT DO NOTHING", (username, password))
             else:
                 c.execute("INSERT INTO users_v6 (username, password) VALUES (?, ?) OR IGNORE", (username, password))
-        except:
-            pass
-
+        except: pass
     conn.commit()
     conn.close()
 
@@ -74,8 +77,7 @@ init_db()
 
 def get_current_user(request: Request):
     raw_user = request.cookies.get("session_user")
-    if not raw_user:
-        raise HTTPException(status_code=401, detail="ログインが必要です")
+    if not raw_user: raise HTTPException(status_code=401, detail="ログインが必要です")
     return urllib.parse.unquote(raw_user)
 
 @app.get("/users")
@@ -91,10 +93,8 @@ def get_users():
 def get_user_icon(username: str):
     conn = get_db_connection()
     c = conn.cursor()
-    if DB_URL:
-        c.execute("SELECT icon_data FROM users_v6 WHERE username = %s", (username,))
-    else:
-        c.execute("SELECT icon_data FROM users_v6 WHERE username = ?", (username,))
+    if DB_URL: c.execute("SELECT icon_data FROM users_v6 WHERE username = %s", (username,))
+    else: c.execute("SELECT icon_data FROM users_v6 WHERE username = ?", (username,))
     row = c.fetchone()
     conn.close()
     
@@ -111,19 +111,15 @@ def get_user_icon(username: str):
 def login(data: LoginData, response: Response):
     conn = get_db_connection()
     c = conn.cursor()
-    if DB_URL:
-        c.execute("SELECT password FROM users_v6 WHERE username = %s", (data.username,))
-    else:
-        c.execute("SELECT password FROM users_v6 WHERE username = ?", (data.username,))
+    if DB_URL: c.execute("SELECT password FROM users_v6 WHERE username = %s", (data.username,))
+    else: c.execute("SELECT password FROM users_v6 WHERE username = ?", (data.username,))
     row = c.fetchone()
     conn.close()
-
     if row and row[0] == data.password:
         safe_username = urllib.parse.quote(data.username)
         response.set_cookie(key="session_user", value=safe_username, max_age=2592000, httponly=True, samesite="lax")
         return {"message": "ログイン成功！"}
-    else:
-        raise HTTPException(status_code=400, detail="パスワードが違います")
+    raise HTTPException(status_code=400, detail="パスワードが違います")
 
 @app.post("/logout")
 def logout(response: Response):
@@ -152,65 +148,95 @@ async def update_icon(file: UploadFile = File(...), username: str = Depends(get_
 def get_posts(username: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
-    
-    c.execute("SELECT id, name, content, created_at FROM posts_v6 ORDER BY id DESC")
+    # ★ タイムラインには「返信ではない普通の投稿（parent_id IS NULL）」だけを表示する
+    c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE parent_id IS NULL ORDER BY id DESC")
     posts_data = c.fetchall()
     
-    # ★ 閲覧履歴をつける処理（自分の投稿は除外する）
     if posts_data:
         for row in posts_data:
-            pid = row[0]
-            post_author = row[1]
-            # 投稿者と今のユーザーが違う時だけ、閲覧履歴に保存
+            pid, post_author = row[0], row[1]
             if post_author != username:
-                if DB_URL:
-                    c.execute("INSERT INTO views (post_id, username) VALUES (%s, %s) ON CONFLICT DO NOTHING", (pid, username))
-                else:
-                    c.execute("INSERT INTO views (post_id, username) VALUES (?, ?) OR IGNORE", (pid, username))
+                if DB_URL: c.execute("INSERT INTO views (post_id, username) VALUES (%s, %s) ON CONFLICT DO NOTHING", (pid, username))
+                else: c.execute("INSERT INTO views (post_id, username) VALUES (?, ?) OR IGNORE", (pid, username))
     
     c.execute("SELECT post_id, username FROM likes")
-    likes_data = c.fetchall()
+    likes_map = {}
+    for pid, uname in c.fetchall(): likes_map.setdefault(pid, []).append(uname)
+        
     c.execute("SELECT post_id, username FROM views")
-    views_data = c.fetchall()
+    views_map = {}
+    for pid, uname in c.fetchall(): views_map.setdefault(pid, []).append(uname)
     
-    likes_map, views_map = {}, {}
-    for pid, uname in likes_data:
-        likes_map.setdefault(pid, []).append(uname)
-    for pid, uname in views_data:
-        views_map.setdefault(pid, []).append(uname)
+    # ★ 各投稿への返信の数（リプライ数）をまとめて計算
+    c.execute("SELECT parent_id, COUNT(id) FROM posts_v6 WHERE parent_id IS NOT NULL GROUP BY parent_id")
+    replies_map = dict(c.fetchall())
         
     posts = []
     for row in posts_data:
-        pid = row[0]
-        post_author = row[1]
-        post_likes = likes_map.get(pid, [])
-        
-        # ★ 閲覧数を計算する時、念のため「過去に混ざってしまった自分の閲覧」もノーカウントにする
-        post_views = [u for u in views_map.get(pid, []) if u != post_author]
-
+        pid, post_author = row[0], row[1]
         posts.append({
-            "id": pid,
-            "name": post_author,
-            "content": row[2],
-            "created_at": row[3],
-            "like_count": len(post_likes),
-            "is_liked": username in post_likes,
-            "view_count": len(post_views) # 自分を除外した正しい閲覧数
+            "id": pid, "name": post_author, "content": row[2], "created_at": row[3],
+            "like_count": len(likes_map.get(pid, [])),
+            "is_liked": username in likes_map.get(pid, []),
+            "view_count": len([u for u in views_map.get(pid, []) if u != post_author]),
+            "reply_count": replies_map.get(pid, 0)
         })
         
     conn.commit() 
     conn.close()
     return posts
 
+# ★ 新機能：特定の投稿とその返信一覧（スレッド）を取得するAPI
+@app.get("/posts/{post_id}/thread")
+def get_thread(post_id: int, username: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    if DB_URL: c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE id = %s", (post_id,))
+    else: c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE id = ?", (post_id,))
+    main_data = c.fetchone()
+    if not main_data:
+        conn.close()
+        raise HTTPException(status_code=404)
+        
+    if DB_URL: c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE parent_id = %s ORDER BY id ASC", (post_id,))
+    else: c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE parent_id = ? ORDER BY id ASC", (post_id,))
+    replies_data = c.fetchall()
+    
+    c.execute("SELECT post_id, username FROM likes")
+    likes_map = {}
+    for pid, uname in c.fetchall(): likes_map.setdefault(pid, []).append(uname)
+        
+    c.execute("SELECT post_id, username FROM views")
+    views_map = {}
+    for pid, uname in c.fetchall(): views_map.setdefault(pid, []).append(uname)
+        
+    c.execute("SELECT parent_id, COUNT(id) FROM posts_v6 WHERE parent_id IS NOT NULL GROUP BY parent_id")
+    replies_map = dict(c.fetchall())
+    
+    def format_post(row):
+        pid, author = row[0], row[1]
+        return {
+            "id": pid, "name": author, "content": row[2], "created_at": row[3],
+            "like_count": len(likes_map.get(pid, [])),
+            "is_liked": username in likes_map.get(pid, []),
+            "view_count": len([u for u in views_map.get(pid, []) if u != author]),
+            "reply_count": replies_map.get(pid, 0)
+        }
+        
+    conn.close()
+    return {"main_post": format_post(main_data), "replies": [format_post(r) for r in replies_data]}
+
 @app.post("/posts")
 def create_post(post: PostData, username: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    # ★ 返信先ID（parent_id）も一緒に保存する
     if DB_URL:
-        c.execute("INSERT INTO posts_v6 (name, content, created_at) VALUES (%s, %s, %s)", (username, post.content, now))
+        c.execute("INSERT INTO posts_v6 (name, content, created_at, parent_id) VALUES (%s, %s, %s, %s)", (username, post.content, now, post.parent_id))
     else:
-        c.execute("INSERT INTO posts_v6 (name, content, created_at) VALUES (?, ?, ?)", (username, post.content, now))
+        c.execute("INSERT INTO posts_v6 (name, content, created_at, parent_id) VALUES (?, ?, ?, ?)", (username, post.content, now, post.parent_id))
     conn.commit()
     conn.close()
     return {"message": "投稿完了！"}
@@ -219,59 +245,35 @@ def create_post(post: PostData, username: str = Depends(get_current_user)):
 def toggle_like(post_id: int, username: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
-    
-    if DB_URL:
-        c.execute("SELECT name FROM posts_v6 WHERE id = %s", (post_id,))
-    else:
-        c.execute("SELECT name FROM posts_v6 WHERE id = ?", (post_id,))
+    if DB_URL: c.execute("SELECT name FROM posts_v6 WHERE id = %s", (post_id,))
+    else: c.execute("SELECT name FROM posts_v6 WHERE id = ?", (post_id,))
     post_row = c.fetchone()
-    
     if not post_row:
         conn.close()
-        raise HTTPException(status_code=404, detail="投稿が見つかりません")
-        
+        raise HTTPException(status_code=404)
     if post_row[0] == username:
         conn.close()
         raise HTTPException(status_code=400, detail="自分の投稿にはいいねできません")
 
-    if DB_URL:
-        c.execute("SELECT 1 FROM likes WHERE post_id = %s AND username = %s", (post_id, username))
-    else:
-        c.execute("SELECT 1 FROM likes WHERE post_id = ? AND username = ?", (post_id, username))
-    
+    if DB_URL: c.execute("SELECT 1 FROM likes WHERE post_id = %s AND username = %s", (post_id, username))
+    else: c.execute("SELECT 1 FROM likes WHERE post_id = ? AND username = ?", (post_id, username))
     if c.fetchone():
-        if DB_URL:
-            c.execute("DELETE FROM likes WHERE post_id = %s AND username = %s", (post_id, username))
-        else:
-            c.execute("DELETE FROM likes WHERE post_id = ? AND username = ?", (post_id, username))
+        if DB_URL: c.execute("DELETE FROM likes WHERE post_id = %s AND username = %s", (post_id, username))
+        else: c.execute("DELETE FROM likes WHERE post_id = ? AND username = ?", (post_id, username))
     else:
-        if DB_URL:
-            c.execute("INSERT INTO likes (post_id, username) VALUES (%s, %s)", (post_id, username))
-        else:
-            c.execute("INSERT INTO likes (post_id, username) VALUES (?, ?)", (post_id, username))
-            
+        if DB_URL: c.execute("INSERT INTO likes (post_id, username) VALUES (%s, %s)", (post_id, username))
+        else: c.execute("INSERT INTO likes (post_id, username) VALUES (?, ?)", (post_id, username))
     conn.commit()
     conn.close()
-    return {"message": "いいね状態を更新しました"}
+    return {"message": "いいね状態を更新"}
 
 @app.get("/")
-def read_index():
-    return FileResponse("index.html")
-
+def read_index(): return FileResponse("index.html")
 @app.get("/favicon.ico")
-def get_favicon():
-    return FileResponse("favicon.ico")
-
-
-# ★ 自作のハートアイコンを画面に配るための新しい設定
+def get_favicon(): return FileResponse("favicon.ico")
+@app.get("/style.css")
+def get_css(): return FileResponse("style.css")
 @app.get("/icons/{filename}")
 def get_custom_icon(filename: str):
-    if filename in ["kitsu_pink.ico", "kitsu_gray.ico", "kitsu_disabled.ico"]:
-        return FileResponse(filename)
+    if filename in ["heart_pink.ico", "heart_gray.ico", "heart_disabled.ico"]: return FileResponse(filename)
     return {"error": "画像が見つかりません"}
-
-
-# ★ 新しく作ったCSSファイルを配る設定
-@app.get("/style.css")
-def get_css():
-    return FileResponse("style.css")
