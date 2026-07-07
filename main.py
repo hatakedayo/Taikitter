@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import urllib.parse  # ★ 日本語を安全に変換するツールを追加！
 from fastapi import FastAPI, Depends, HTTPException, status, Response, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -36,7 +37,6 @@ def init_db():
     conn = get_db_connection()
     c = conn.cursor()
     
-    # ★ データをまっさらにリセットして本番スタートするため、バージョンを「v6」に上げました
     if DB_URL:
         c.execute("""
             CREATE TABLE IF NOT EXISTS users_v6 (
@@ -70,14 +70,14 @@ def init_db():
             )
         """)
     
-    # ★ ここを実際の友達の名前と、それぞれのパスワードに書き換えてください！
+    # ★ ここを実際の友達の日本語名とパスワードに書き換えてください
     friends = [
         ("たいき", "0000"),
         ("たくと", "0000"),
         ("ひかる", "0000"),
         ("ゆうき", "0000"),
         ("ゆうせい", "0000"),
-        ("わく", "0000")
+        ("わく", "0000"),
     ]
     
     for username, password in friends:
@@ -94,11 +94,12 @@ def init_db():
 
 init_db()
 
+# ★ 変更点1：Cookieから読み出すときに、記号を日本語に戻す処理を追加
 def get_current_user(request: Request):
-    username = request.cookies.get("session_user")
-    if not username:
+    raw_user = request.cookies.get("session_user")
+    if not raw_user:
         raise HTTPException(status_code=401, detail="ログインが必要です")
-    return username
+    return urllib.parse.unquote(raw_user)  # 記号から日本語に復元
 
 @app.get("/users")
 def get_users():
@@ -125,7 +126,9 @@ def get_user_icon(username: str):
         return FastAPIResponse(content=img_bytes, media_type="image/jpeg")
     else:
         import requests
-        svg = requests.get(f"https://api.dicebear.com/7.x/bottts/svg?seed={username}").text
+        # ★ 変更点2：初期アイコンを取ってくるURLにも日本語を安全に変換して渡す
+        safe_seed = urllib.parse.quote(username)
+        svg = requests.get(f"https://api.dicebear.com/7.x/bottts/svg?seed={safe_seed}").text
         return FastAPIResponse(content=svg, media_type="image/svg+xml")
 
 @app.post("/login")
@@ -140,7 +143,9 @@ def login(data: LoginData, response: Response):
     conn.close()
 
     if row and row[0] == data.password:
-        response.set_cookie(key="session_user", value=data.username, max_age=2592000, httponly=True, samesite="lax")
+        # ★ 変更点3：Cookieに保存する前に、日本語を安全な記号に変換
+        safe_username = urllib.parse.quote(data.username)
+        response.set_cookie(key="session_user", value=safe_username, max_age=2592000, httponly=True, samesite="lax")
         return {"message": "ログイン成功！"}
     else:
         raise HTTPException(status_code=400, detail="パスワードが違います")
