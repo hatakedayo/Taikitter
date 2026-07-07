@@ -275,5 +275,5 @@ def get_favicon(): return FileResponse("favicon.ico")
 def get_css(): return FileResponse("style.css")
 @app.get("/icons/{filename}")
 def get_custom_icon(filename: str):
-    if filename in ["heart_pink.ico", "heart_gray.ico", "heart_disabled.ico"]: return FileResponse(filename)
+    if filename in ["kitsu_pink.ico", "kitsu_gray.ico", "kitsu_disabled.ico"]: return FileResponse(filename)
     return {"error": "画像が見つかりません"}
