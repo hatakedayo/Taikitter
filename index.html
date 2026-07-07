@@ -2,14 +2,24 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- ★ タブの名前を Taikitter に変更しました！ -->
     <title>Taikitter</title>
+    <!-- ファビコンの読み込み -->
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    
     <style>
         body { font-family: sans-serif; background-color: #f7f9f9; margin: 0; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background-color: #ffffff; min-height: 100vh; border-left: 1px solid #eff3f4; border-right: 1px solid #eff3f4; box-sizing: border-box; }
         
+        /* --- ★ 新しく追加したタイトルロゴ周辺のデザイン --- */
+        .site-branding { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; }
+        .site-branding img { width: 72px; height: 72px; border-radius: 15px; margin-bottom: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .site-branding h1 { margin: 0; font-size: 2.2em; color: #0f1419; letter-spacing: -1px; font-weight: 900; }
+        
         #login-screen { padding: 40px 20px; text-align: center; }
+        #login-screen h2 { font-size: 1.1em; color: #536471; margin-top: 0; }
+        
         .user-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 30px 0; }
         .user-card { background: #f7f9f9; padding: 15px; border-radius: 12px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
         .user-card:hover { background: #eef1f2; }
@@ -52,8 +62,15 @@
     </style>
 </head>
 <body>
+    <!-- 🔑 ログイン画面 -->
     <div id="login-screen" class="container">
+        <!-- ★ ここにロゴ画像とサイト名を追加しました！ -->
+        <div class="site-branding">
+            <img src="/favicon.ico" alt="Taikitter Logo">
+            <h1>Taikitter</h1>
+        </div>
         <h2>誰がログインしますか？</h2>
+        
         <div id="userGrid" class="user-grid"></div>
         
         <div class="password-box">
@@ -63,11 +80,13 @@
         </div>
     </div>
 
+    <!-- 📱 タイムライン画面 -->
     <div id="main-screen" class="container" style="display: none;">
         <div class="header">
             <div class="header-left">
                 <img id="myIconHeader" src="" alt="" onclick="openIconModal()" title="アイコンを変更">
-                <span>ホーム</span>
+                <!-- ★ ヘッダーの文字も Taikitter ホーム にしてみました -->
+                <span>Taikitter ホーム</span>
             </div>
             <button class="logout-btn" onclick="logout()">ログアウト</button>
         </div>
@@ -75,20 +94,19 @@
         <div class="post-box">
             <img id="myIconPostBox" src="" alt="">
             <div class="post-box-right">
-                <textarea id="contentInput" rows="3" placeholder="ごめんけどいまどうしてる？"></textarea>
+                <textarea id="contentInput" rows="3" placeholder="いまどうしてる？"></textarea>
                 <button onclick="sendPost()">ポストする</button>
             </div>
         </div>
         <div id="timeline"></div>
     </div>
 
+    <!-- 🛠 アイコン写真アップロードのポップアップ -->
     <div id="iconModal" class="modal">
         <div class="modal-content">
             <h3>プロフィール写真の変更</h3>
             <p style="font-size: 0.85em; color: #536471;">スマホの写真フォルダやPCから画像を選んでください</p>
-            
             <input type="file" id="iconFileInput" accept="image/jpeg, image/png">
-            
             <div class="modal-btns">
                 <button class="cancel-btn" onclick="closeIconModal()">キャンセル</button>
                 <button class="save-btn" onclick="saveIcon()">アップロード</button>
@@ -98,7 +116,7 @@
 
     <script>
         let selectedUsername = "";
-        let currentLoggedInUser = ""; // 現在ログインしているユーザー名を記憶する変数
+        let currentLoggedInUser = ""; 
 
         window.onload = function() {
             loadUserGrid();
@@ -115,9 +133,8 @@
                 const card = document.createElement("div");
                 card.className = "user-card";
                 card.id = `card-${user.username}`;
-                // ★ アイコンの読み込み先を新設した専用URL（/users/ユーザー名/icon）に変更！末尾のタイムスタンプはキャッシュ対策です。
                 card.innerHTML = `
-                    <img src="/users/${user.username}/icon?t=${Date.now()}" alt="">
+                    <img src="/users/${encodeURIComponent(user.username)}/icon?t=${Date.now()}" alt="">
                     <div>${user.username}</div>
                 `;
                 card.onclick = () => selectUser(user.username);
@@ -136,12 +153,11 @@
             const response = await fetch("/me");
             if (response.ok) {
                 const me = await response.json();
-                currentLoggedInUser = me.username; // 名前を記憶
+                currentLoggedInUser = me.username; 
                 document.getElementById("login-screen").style.display = "none";
                 document.getElementById("main-screen").style.display = "block";
                 
-                // 自分のアイコン画像をセット（キャッシュを回避するために現在の時刻をオマケでつけます）
-                const iconSrc = `/users/${me.username}/icon?t=${Date.now()}`;
+                const iconSrc = `/users/${encodeURIComponent(me.username)}/icon?t=${Date.now()}`;
                 document.getElementById("myIconHeader").src = iconSrc;
                 document.getElementById("myIconPostBox").src = iconSrc;
                 
@@ -181,7 +197,7 @@
             document.querySelectorAll(".user-card").forEach(c => c.classList.remove("selected"));
             document.getElementById("passwordInput").value = "";
             checkLoginStatus();
-            loadUserGrid(); // ログアウト後にログイン画面のアイコンも最新にする
+            loadUserGrid(); 
         }
 
         async function loadPosts() {
@@ -198,9 +214,8 @@
 
                 const postDiv = document.createElement("div");
                 postDiv.className = "post";
-                // ★ タイムライン内の各アイコンも、個別の画像読み出しAPIに切り替え
                 postDiv.innerHTML = `
-                    <img src="/users/${post.name}/icon?t=${Date.now()}" alt="">
+                    <img src="/users/${encodeURIComponent(post.name)}/icon?t=${Date.now()}" alt="">
                     <div class="post-right">
                         <div class="post-header">
                             <div class="post-name">@${post.name}</div>
@@ -230,10 +245,9 @@
         function openIconModal() { document.getElementById("iconModal").style.display = "flex"; }
         function closeIconModal() { 
             document.getElementById("iconModal").style.display = "none"; 
-            document.getElementById("iconFileInput").value = ""; // 選択リセット
+            document.getElementById("iconFileInput").value = ""; 
         }
         
-        // ★ 自前のファイルをサーバーへアップロードする処理
         async function saveIcon() {
             const fileInput = document.getElementById("iconFileInput");
             if (fileInput.files.length === 0) {
@@ -242,19 +256,16 @@
             }
 
             const file = fileInput.files[0];
-            
-            // ファイルを送信するための「箱（FormData）」を作る（Webでファイルを送る標準のやり方です）
             const formData = new FormData();
             formData.append("file", file);
 
-            // サーバーにファイルを送信！
             await fetch("/me/icon", {
                 method: "POST",
-                body: formData // ※ファイルを送るときは「Content-Type」の指定をしてはいけません（ブラウザが自動設定します）
+                body: formData 
             });
 
             closeIconModal();
-            checkLoginStatus(); // 画面全体のアイコンを最新に更新
+            checkLoginStatus(); 
         }
     </script>
 </body>
