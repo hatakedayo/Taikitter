@@ -280,16 +280,16 @@
                 const timeString = date.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                 
                 let likeClass = "action-btn like-btn";
-                let heartImgSrc = "/icons/heart_gray.ico";
+                let heartImgSrc = "/icons/kitsu_gray.ico";
                 let onclickAction = `onclick="toggleLike(${post.id})"`;
                 
                 if (post.name === currentLoggedInUser) {
                     likeClass += " disabled";
-                    heartImgSrc = "/icons/heart_disabled.ico"; 
+                    heartImgSrc = "/icons/kitsu_disabled.ico"; 
                     onclickAction = ""; 
                 } else if (post.is_liked) {
                     likeClass += " liked";
-                    heartImgSrc = "/icons/heart_pink.ico"; 
+                    heartImgSrc = "/icons/kitsu_pink.ico"; 
                 }
                 
                 const likeCountText = post.like_count > 0 ? post.like_count : "";
