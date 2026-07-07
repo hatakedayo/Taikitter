@@ -40,7 +40,7 @@
         .post-box button { align-self: flex-end; background-color: #1d9bf0; color: white; border: none; border-radius: 9999px; padding: 10px 20px; font-weight: bold; cursor: pointer; }
 
         .post { padding: 15px; border-bottom: 1px solid #eff3f4; display: flex; gap: 12px; }
-        .post img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: #eee; }
+        .post img.user-icon { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: #eee; }
         .post-right { flex: 1; }
         .post-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
         .post-name { font-weight: bold; }
@@ -51,14 +51,13 @@
         .action-btn { color: #536471; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 1.2em; transition: 0.2s; user-select: none; }
         .action-btn span { font-size: 0.8em; font-weight: bold; }
         
-        .like-btn:hover { color: #f91880; }
-        .like-btn.liked { color: #f91880; }
+        /* ★ 自作アイコン画像のサイズ設定 */
+        .custom-heart-icon { width: 22px; height: 22px; object-fit: contain; }
         
-        /* ★ 自分の投稿はいいねできないようにするスタイル */
-        .like-btn.disabled { color: #cfd9de; cursor: not-allowed; }
-        .like-btn.disabled:hover { color: #cfd9de; }
+        .like-btn:hover { opacity: 0.8; }
+        .like-btn.disabled { cursor: not-allowed; }
+        .like-btn.disabled:hover { opacity: 1; }
         
-        /* 閲覧数ボタンのスタイル（ホバーで青くなるように） */
         .view-btn { cursor: default; }
         .view-btn:hover { color: #1d9bf0; }
 
@@ -208,28 +207,28 @@
                 const date = new Date(post.created_at + "Z");
                 const timeString = date.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                 
-                // ★ ハートの設定（自分が投稿したものはグレーにしてクリック無効にする）
                 let likeClass = "action-btn like-btn";
-                let heartIcon = "♡";
+                // ★ デフォルトは「②グレー（押す前）」
+                let heartImgSrc = "/icons/heart_gray.ico";
                 let onclickAction = `onclick="toggleLike(${post.id})"`;
                 
+                // ★ 状態によって画像を切り替える！
                 if (post.name === currentLoggedInUser) {
                     likeClass += " disabled";
-                    onclickAction = ""; // 自分の投稿はクリック無効
+                    heartImgSrc = "/icons/heart_disabled.ico"; // ③ホワイトグレー（押せない）
+                    onclickAction = ""; 
                 } else if (post.is_liked) {
                     likeClass += " liked";
-                    heartIcon = "♥";
+                    heartImgSrc = "/icons/heart_pink.ico"; // ①ピンク（押したあと）
                 }
                 
                 const likeCountText = post.like_count > 0 ? post.like_count : "";
-                
-                // ★ 閲覧数の表示設定（本家のようにグラフの絵文字で表現）
                 const viewCountText = post.view_count > 0 ? post.view_count : 0;
 
                 const postDiv = document.createElement("div");
                 postDiv.className = "post";
                 postDiv.innerHTML = `
-                    <img src="/users/${encodeURIComponent(post.name)}/icon?t=${Date.now()}" alt="">
+                    <img class="user-icon" src="/users/${encodeURIComponent(post.name)}/icon?t=${Date.now()}" alt="">
                     <div class="post-right">
                         <div class="post-header">
                             <div class="post-name">@${post.name}</div>
@@ -238,7 +237,9 @@
                         <div class="post-text">${post.content}</div>
                         <div class="post-actions">
                             <div class="${likeClass}" ${onclickAction} title="いいね">
-                                ${heartIcon} <span>${likeCountText}</span>
+                                <!-- ★ 文字から画像タグ(img)に変更しました -->
+                                <img src="${heartImgSrc}" class="custom-heart-icon" alt="heart"> 
+                                <span style="${post.is_liked ? 'color: #f91880;' : ''}">${likeCountText}</span>
                             </div>
                             <div class="action-btn view-btn" title="閲覧数">
                                 📊 <span>${viewCountText}</span>
