@@ -1,6 +1,6 @@
 import os
 import sqlite3
-import urllib.parse  # ★ 日本語を安全に変換するツールを追加！
+import urllib.parse
 from fastapi import FastAPI, Depends, HTTPException, status, Response, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -38,46 +38,21 @@ def init_db():
     c = conn.cursor()
     
     if DB_URL:
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS users_v6 (
-                username TEXT PRIMARY KEY,
-                password TEXT,
-                icon_data BYTEA
-            )
-        """)
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS posts_v6 (
-                id SERIAL PRIMARY KEY,
-                name TEXT,
-                content TEXT,
-                created_at TEXT
-            )
-        """)
+        c.execute("CREATE TABLE IF NOT EXISTS users_v6 (username TEXT PRIMARY KEY, password TEXT, icon_data BYTEA)")
+        c.execute("CREATE TABLE IF NOT EXISTS posts_v6 (id SERIAL PRIMARY KEY, name TEXT, content TEXT, created_at TEXT)")
+        c.execute("CREATE TABLE IF NOT EXISTS likes (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
+        # ★ 閲覧数を記録するための新しい箱（views）を追加！
+        c.execute("CREATE TABLE IF NOT EXISTS views (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
     else:
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS users_v6 (
-                username TEXT PRIMARY KEY,
-                password TEXT,
-                icon_data BLOB
-            )
-        """)
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS posts_v6 (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT,
-                content TEXT,
-                created_at TEXT
-            )
-        """)
+        c.execute("CREATE TABLE IF NOT EXISTS users_v6 (username TEXT PRIMARY KEY, password TEXT, icon_data BLOB)")
+        c.execute("CREATE TABLE IF NOT EXISTS posts_v6 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, content TEXT, created_at TEXT)")
+        c.execute("CREATE TABLE IF NOT EXISTS likes (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
+        c.execute("CREATE TABLE IF NOT EXISTS views (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
     
-    # ★ ここを実際の友達の日本語名とパスワードに書き換えてください
     friends = [
-        ("たいき", "0000"),
-        ("たくと", "0000"),
-        ("ひかる", "0000"),
-        ("ゆうき", "0000"),
-        ("ゆうせい", "0000"),
-        ("わく", "0000"),
+        ("太郎", "taro123"),
+        ("花子", "hana456"),
+        ("健司", "ken789")
     ]
     
     for username, password in friends:
@@ -94,12 +69,11 @@ def init_db():
 
 init_db()
 
-# ★ 変更点1：Cookieから読み出すときに、記号を日本語に戻す処理を追加
 def get_current_user(request: Request):
     raw_user = request.cookies.get("session_user")
     if not raw_user:
         raise HTTPException(status_code=401, detail="ログインが必要です")
-    return urllib.parse.unquote(raw_user)  # 記号から日本語に復元
+    return urllib.parse.unquote(raw_user)
 
 @app.get("/users")
 def get_users():
@@ -126,7 +100,6 @@ def get_user_icon(username: str):
         return FastAPIResponse(content=img_bytes, media_type="image/jpeg")
     else:
         import requests
-        # ★ 変更点2：初期アイコンを取ってくるURLにも日本語を安全に変換して渡す
         safe_seed = urllib.parse.quote(username)
         svg = requests.get(f"https://api.dicebear.com/7.x/bottts/svg?seed={safe_seed}").text
         return FastAPIResponse(content=svg, media_type="image/svg+xml")
@@ -143,7 +116,6 @@ def login(data: LoginData, response: Response):
     conn.close()
 
     if row and row[0] == data.password:
-        # ★ 変更点3：Cookieに保存する前に、日本語を安全な記号に変換
         safe_username = urllib.parse.quote(data.username)
         response.set_cookie(key="session_user", value=safe_username, max_age=2592000, httponly=True, samesite="lax")
         return {"message": "ログイン成功！"}
@@ -177,8 +149,48 @@ async def update_icon(file: UploadFile = File(...), username: str = Depends(get_
 def get_posts(username: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT name, content, created_at FROM posts_v6 ORDER BY id DESC")
-    posts = [{"name": row[0], "content": row[1], "created_at": row[2]} for row in c.fetchall()]
+    
+    # 投稿一覧を取得
+    c.execute("SELECT id, name, content, created_at FROM posts_v6 ORDER BY id DESC")
+    posts_data = c.fetchall()
+    
+    # ★ タイムラインを開いた人に「この投稿を見た」という履歴をつける
+    if posts_data:
+        for row in posts_data:
+            pid = row[0]
+            if DB_URL:
+                c.execute("INSERT INTO views (post_id, username) VALUES (%s, %s) ON CONFLICT DO NOTHING", (pid, username))
+            else:
+                c.execute("INSERT INTO views (post_id, username) VALUES (?, ?) OR IGNORE", (pid, username))
+    
+    # 全員のいいねと閲覧数をまとめて取得
+    c.execute("SELECT post_id, username FROM likes")
+    likes_data = c.fetchall()
+    c.execute("SELECT post_id, username FROM views")
+    views_data = c.fetchall()
+    
+    likes_map, views_map = {}, {}
+    for pid, uname in likes_data:
+        likes_map.setdefault(pid, []).append(uname)
+    for pid, uname in views_data:
+        views_map.setdefault(pid, []).append(uname)
+        
+    posts = []
+    for row in posts_data:
+        pid = row[0]
+        post_likes = likes_map.get(pid, [])
+        post_views = views_map.get(pid, [])
+        posts.append({
+            "id": pid,
+            "name": row[1],
+            "content": row[2],
+            "created_at": row[3],
+            "like_count": len(post_likes),
+            "is_liked": username in post_likes,
+            "view_count": len(post_views) # ★ 閲覧数を追加
+        })
+        
+    conn.commit() # 履歴を保存
     conn.close()
     return posts
 
@@ -194,6 +206,47 @@ def create_post(post: PostData, username: str = Depends(get_current_user)):
     conn.commit()
     conn.close()
     return {"message": "投稿完了！"}
+
+@app.post("/posts/{post_id}/like")
+def toggle_like(post_id: int, username: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    # ★ 自分の投稿かチェックする
+    if DB_URL:
+        c.execute("SELECT name FROM posts_v6 WHERE id = %s", (post_id,))
+    else:
+        c.execute("SELECT name FROM posts_v6 WHERE id = ?", (post_id,))
+    post_row = c.fetchone()
+    
+    if not post_row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="投稿が見つかりません")
+        
+    if post_row[0] == username:
+        conn.close()
+        raise HTTPException(status_code=400, detail="自分の投稿にはいいねできません")
+
+    # いいねの切り替え
+    if DB_URL:
+        c.execute("SELECT 1 FROM likes WHERE post_id = %s AND username = %s", (post_id, username))
+    else:
+        c.execute("SELECT 1 FROM likes WHERE post_id = ? AND username = ?", (post_id, username))
+    
+    if c.fetchone():
+        if DB_URL:
+            c.execute("DELETE FROM likes WHERE post_id = %s AND username = %s", (post_id, username))
+        else:
+            c.execute("DELETE FROM likes WHERE post_id = ? AND username = ?", (post_id, username))
+    else:
+        if DB_URL:
+            c.execute("INSERT INTO likes (post_id, username) VALUES (%s, %s)", (post_id, username))
+        else:
+            c.execute("INSERT INTO likes (post_id, username) VALUES (?, ?)", (post_id, username))
+            
+    conn.commit()
+    conn.close()
+    return {"message": "いいね状態を更新しました"}
 
 @app.get("/")
 def read_index():
