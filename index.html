@@ -209,17 +209,17 @@
                 
                 let likeClass = "action-btn like-btn";
                 // ★ デフォルトは「②グレー（押す前）」
-                let heartImgSrc = "/icons/heart_gray.ico";
+                let heartImgSrc = "/icons/kitsu_gray.ico";
                 let onclickAction = `onclick="toggleLike(${post.id})"`;
                 
                 // ★ 状態によって画像を切り替える！
                 if (post.name === currentLoggedInUser) {
                     likeClass += " disabled";
-                    heartImgSrc = "/icons/heart_disabled.ico"; // ③ホワイトグレー（押せない）
+                    heartImgSrc = "/icons/kitsu_disabled.ico"; // ③ホワイトグレー（押せない）
                     onclickAction = ""; 
                 } else if (post.is_liked) {
                     likeClass += " liked";
-                    heartImgSrc = "/icons/heart_pink.ico"; // ①ピンク（押したあと）
+                    heartImgSrc = "/icons/kitsu_pink.ico"; // ①ピンク（押したあと）
                 }
                 
                 const likeCountText = post.like_count > 0 ? post.like_count : "";
