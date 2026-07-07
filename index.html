@@ -3,16 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- ★ タブの名前を Taikitter に変更しました！ -->
     <title>Taikitter</title>
-    <!-- ファビコンの読み込み -->
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
-    
     <style>
         body { font-family: sans-serif; background-color: #f7f9f9; margin: 0; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background-color: #ffffff; min-height: 100vh; border-left: 1px solid #eff3f4; border-right: 1px solid #eff3f4; box-sizing: border-box; }
         
-        /* --- ★ 新しく追加したタイトルロゴ周辺のデザイン --- */
         .site-branding { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; }
         .site-branding img { width: 72px; height: 72px; border-radius: 15px; margin-bottom: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .site-branding h1 { margin: 0; font-size: 2.2em; color: #0f1419; letter-spacing: -1px; font-weight: 900; }
@@ -51,7 +47,21 @@
         .post-time { font-size: 0.85em; color: #536471; }
         .post-text { margin: 0; white-space: pre-wrap; }
 
-        /* --- アイコン設定モーダル --- */
+        .post-actions { margin-top: 12px; display: flex; gap: 30px; }
+        .action-btn { color: #536471; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 1.2em; transition: 0.2s; user-select: none; }
+        .action-btn span { font-size: 0.8em; font-weight: bold; }
+        
+        .like-btn:hover { color: #f91880; }
+        .like-btn.liked { color: #f91880; }
+        
+        /* ★ 自分の投稿はいいねできないようにするスタイル */
+        .like-btn.disabled { color: #cfd9de; cursor: not-allowed; }
+        .like-btn.disabled:hover { color: #cfd9de; }
+        
+        /* 閲覧数ボタンのスタイル（ホバーで青くなるように） */
+        .view-btn { cursor: default; }
+        .view-btn:hover { color: #1d9bf0; }
+
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100; }
         .modal-content { background: white; padding: 25px; border-radius: 15px; width: 85%; max-width: 350px; text-align: center; }
         .modal-content input { margin: 20px 0; font-size: 0.9em; }
@@ -62,17 +72,13 @@
     </style>
 </head>
 <body>
-    <!-- 🔑 ログイン画面 -->
     <div id="login-screen" class="container">
-        <!-- ★ ここにロゴ画像とサイト名を追加しました！ -->
         <div class="site-branding">
             <img src="/favicon.ico" alt="Taikitter Logo">
             <h1>Taikitter</h1>
         </div>
         <h2>誰がログインしますか？</h2>
-        
         <div id="userGrid" class="user-grid"></div>
-        
         <div class="password-box">
             <input type="password" id="passwordInput" placeholder="パスワードを入力">
             <div id="loginError" class="error-msg">パスワードが違います</div>
@@ -80,17 +86,14 @@
         </div>
     </div>
 
-    <!-- 📱 タイムライン画面 -->
     <div id="main-screen" class="container" style="display: none;">
         <div class="header">
             <div class="header-left">
                 <img id="myIconHeader" src="" alt="" onclick="openIconModal()" title="アイコンを変更">
-                <!-- ★ ヘッダーの文字も Taikitter ホーム にしてみました -->
                 <span>Taikitter ホーム</span>
             </div>
             <button class="logout-btn" onclick="logout()">ログアウト</button>
         </div>
-        
         <div class="post-box">
             <img id="myIconPostBox" src="" alt="">
             <div class="post-box-right">
@@ -101,7 +104,6 @@
         <div id="timeline"></div>
     </div>
 
-    <!-- 🛠 アイコン写真アップロードのポップアップ -->
     <div id="iconModal" class="modal">
         <div class="modal-content">
             <h3>プロフィール写真の変更</h3>
@@ -128,7 +130,6 @@
             const users = await response.json();
             const grid = document.getElementById("userGrid");
             grid.innerHTML = "";
-
             users.forEach(user => {
                 const card = document.createElement("div");
                 card.className = "user-card";
@@ -156,11 +157,9 @@
                 currentLoggedInUser = me.username; 
                 document.getElementById("login-screen").style.display = "none";
                 document.getElementById("main-screen").style.display = "block";
-                
                 const iconSrc = `/users/${encodeURIComponent(me.username)}/icon?t=${Date.now()}`;
                 document.getElementById("myIconHeader").src = iconSrc;
                 document.getElementById("myIconPostBox").src = iconSrc;
-                
                 loadPosts();
             } else {
                 document.getElementById("login-screen").style.display = "block";
@@ -174,13 +173,11 @@
                 return;
             }
             const pass = document.getElementById("passwordInput").value;
-            
             const response = await fetch("/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username: selectedUsername, password: pass })
             });
-
             if (response.ok) {
                 document.getElementById("loginError").style.display = "none";
                 document.getElementById("passwordInput").value = "";
@@ -203,7 +200,6 @@
         async function loadPosts() {
             const response = await fetch("/posts");
             if (!response.ok) return;
-            
             const posts = await response.json();
             const timeline = document.getElementById("timeline");
             timeline.innerHTML = "";
@@ -211,6 +207,24 @@
             posts.forEach(post => {
                 const date = new Date(post.created_at + "Z");
                 const timeString = date.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                
+                // ★ ハートの設定（自分が投稿したものはグレーにしてクリック無効にする）
+                let likeClass = "action-btn like-btn";
+                let heartIcon = "♡";
+                let onclickAction = `onclick="toggleLike(${post.id})"`;
+                
+                if (post.name === currentLoggedInUser) {
+                    likeClass += " disabled";
+                    onclickAction = ""; // 自分の投稿はクリック無効
+                } else if (post.is_liked) {
+                    likeClass += " liked";
+                    heartIcon = "♥";
+                }
+                
+                const likeCountText = post.like_count > 0 ? post.like_count : "";
+                
+                // ★ 閲覧数の表示設定（本家のようにグラフの絵文字で表現）
+                const viewCountText = post.view_count > 0 ? post.view_count : 0;
 
                 const postDiv = document.createElement("div");
                 postDiv.className = "post";
@@ -222,6 +236,14 @@
                             <div class="post-time">${timeString}</div>
                         </div>
                         <div class="post-text">${post.content}</div>
+                        <div class="post-actions">
+                            <div class="${likeClass}" ${onclickAction} title="いいね">
+                                ${heartIcon} <span>${likeCountText}</span>
+                            </div>
+                            <div class="action-btn view-btn" title="閲覧数">
+                                📊 <span>${viewCountText}</span>
+                            </div>
+                        </div>
                     </div>
                 `;
                 timeline.appendChild(postDiv);
@@ -231,15 +253,18 @@
         async function sendPost() {
             const content = document.getElementById("contentInput").value;
             if (content === "") return;
-
             await fetch("/posts", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ content: content })
             });
-
             document.getElementById("contentInput").value = "";
             loadPosts();
+        }
+        
+        async function toggleLike(postId) {
+            await fetch(`/posts/${postId}/like`, { method: "POST" });
+            loadPosts(); 
         }
 
         function openIconModal() { document.getElementById("iconModal").style.display = "flex"; }
@@ -254,16 +279,10 @@
                 alert("写真を選択してください！");
                 return;
             }
-
             const file = fileInput.files[0];
             const formData = new FormData();
             formData.append("file", file);
-
-            await fetch("/me/icon", {
-                method: "POST",
-                body: formData 
-            });
-
+            await fetch("/me/icon", { method: "POST", body: formData });
             closeIconModal();
             checkLoginStatus(); 
         }
