@@ -41,7 +41,6 @@ def init_db():
         c.execute("CREATE TABLE IF NOT EXISTS users_v6 (username TEXT PRIMARY KEY, password TEXT, icon_data BYTEA)")
         c.execute("CREATE TABLE IF NOT EXISTS posts_v6 (id SERIAL PRIMARY KEY, name TEXT, content TEXT, created_at TEXT)")
         c.execute("CREATE TABLE IF NOT EXISTS likes (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
-        # ★ 閲覧数を記録するための新しい箱（views）を追加！
         c.execute("CREATE TABLE IF NOT EXISTS views (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
     else:
         c.execute("CREATE TABLE IF NOT EXISTS users_v6 (username TEXT PRIMARY KEY, password TEXT, icon_data BLOB)")
@@ -49,6 +48,7 @@ def init_db():
         c.execute("CREATE TABLE IF NOT EXISTS likes (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
         c.execute("CREATE TABLE IF NOT EXISTS views (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
     
+    # ★ ここは設定した友達の日本語名に書き換えてください
     friends = [
         ("たいき", "0000"),
         ("たくと", "0000"),
@@ -153,20 +153,21 @@ def get_posts(username: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
     
-    # 投稿一覧を取得
     c.execute("SELECT id, name, content, created_at FROM posts_v6 ORDER BY id DESC")
     posts_data = c.fetchall()
     
-    # ★ タイムラインを開いた人に「この投稿を見た」という履歴をつける
+    # ★ 閲覧履歴をつける処理（自分の投稿は除外する）
     if posts_data:
         for row in posts_data:
             pid = row[0]
-            if DB_URL:
-                c.execute("INSERT INTO views (post_id, username) VALUES (%s, %s) ON CONFLICT DO NOTHING", (pid, username))
-            else:
-                c.execute("INSERT INTO views (post_id, username) VALUES (?, ?) OR IGNORE", (pid, username))
+            post_author = row[1]
+            # 投稿者と今のユーザーが違う時だけ、閲覧履歴に保存
+            if post_author != username:
+                if DB_URL:
+                    c.execute("INSERT INTO views (post_id, username) VALUES (%s, %s) ON CONFLICT DO NOTHING", (pid, username))
+                else:
+                    c.execute("INSERT INTO views (post_id, username) VALUES (?, ?) OR IGNORE", (pid, username))
     
-    # 全員のいいねと閲覧数をまとめて取得
     c.execute("SELECT post_id, username FROM likes")
     likes_data = c.fetchall()
     c.execute("SELECT post_id, username FROM views")
@@ -181,19 +182,23 @@ def get_posts(username: str = Depends(get_current_user)):
     posts = []
     for row in posts_data:
         pid = row[0]
+        post_author = row[1]
         post_likes = likes_map.get(pid, [])
-        post_views = views_map.get(pid, [])
+        
+        # ★ 閲覧数を計算する時、念のため「過去に混ざってしまった自分の閲覧」もノーカウントにする
+        post_views = [u for u in views_map.get(pid, []) if u != post_author]
+
         posts.append({
             "id": pid,
-            "name": row[1],
+            "name": post_author,
             "content": row[2],
             "created_at": row[3],
             "like_count": len(post_likes),
             "is_liked": username in post_likes,
-            "view_count": len(post_views) # ★ 閲覧数を追加
+            "view_count": len(post_views) # 自分を除外した正しい閲覧数
         })
         
-    conn.commit() # 履歴を保存
+    conn.commit() 
     conn.close()
     return posts
 
@@ -215,7 +220,6 @@ def toggle_like(post_id: int, username: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
     
-    # ★ 自分の投稿かチェックする
     if DB_URL:
         c.execute("SELECT name FROM posts_v6 WHERE id = %s", (post_id,))
     else:
@@ -230,7 +234,6 @@ def toggle_like(post_id: int, username: str = Depends(get_current_user)):
         conn.close()
         raise HTTPException(status_code=400, detail="自分の投稿にはいいねできません")
 
-    # いいねの切り替え
     if DB_URL:
         c.execute("SELECT 1 FROM likes WHERE post_id = %s AND username = %s", (post_id, username))
     else:
