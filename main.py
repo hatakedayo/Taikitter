@@ -261,3 +261,11 @@ def read_index():
 @app.get("/favicon.ico")
 def get_favicon():
     return FileResponse("favicon.ico")
+
+
+# ★ 自作のハートアイコンを画面に配るための新しい設定
+@app.get("/icons/{filename}")
+def get_custom_icon(filename: str):
+    if filename in ["kitsu_pink.ico", "kitsu_gray.ico", "kitsu_disabled.ico"]:
+        return FileResponse(filename)
+    return {"error": "画像が見つかりません"}
