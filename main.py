@@ -269,10 +269,18 @@ def toggle_like(post_id: int, username: str = Depends(get_current_user)):
 
 @app.get("/")
 def read_index(): return FileResponse("index.html")
+    
 @app.get("/favicon.ico")
 def get_favicon(): return FileResponse("favicon.ico")
+
+# ★ 新しく作ったJSファイルを配る設定
+@app.get("/script.js")
+def get_script():
+    return FileResponse("script.js")
+
 @app.get("/style.css")
 def get_css(): return FileResponse("style.css")
+    
 @app.get("/icons/{filename}")
 def get_custom_icon(filename: str):
     if filename in ["kitsu_pink.ico", "kitsu_gray.ico", "kitsu_disabled.ico"]: return FileResponse(filename)
