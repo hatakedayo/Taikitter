@@ -149,8 +149,12 @@
             </div>
             <div id="passwordError" class="error-msg" style="margin-bottom: 15px;"></div>
             <div style="display: flex; gap: 10px; justify-content: center;">
-                <button onclick="closePasswordModal()" style="...">キャンセル</button>
-                <button onclick="savePassword()" style="...">変更する</button>
+                <!-- キャンセルボタン -->
+                <button onclick="closePasswordModal()"
+                    style="padding: 8px 20px; border-radius: 9999px; border: none; font-weight: bold; background: #efefef; cursor: pointer;">キャンセル</button>
+                <!-- 変更するボタン -->
+                <button onclick="savePassword()"
+                    style="padding: 8px 20px; border-radius: 9999px; border: none; font-weight: bold; background: #1d9bf0; color: white; cursor: pointer;">変更する</button>
             </div>
         </div>
     </div>
