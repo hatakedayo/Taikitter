@@ -24,6 +24,12 @@ class PostData(BaseModel):
     content: str
     parent_id: Optional[int] = None
 
+# ★ 新設：パスワード変更用のデータ型
+class PasswordChangeData(BaseModel):
+    current_password: str
+    new_password: str
+
+
 DB_URL = os.environ.get("DATABASE_URL")
 
 def get_db_connection():
@@ -267,23 +273,46 @@ def toggle_like(post_id: int, username: str = Depends(get_current_user)):
     conn.close()
     return {"message": "いいね状態を更新"}
 
+
+# ★ 新設：パスワードを変更するAPI
+@app.post("/me/password")
+def change_password(data: PasswordChangeData, username: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    # 1. 現在のパスワードが合っているか確認
+    if DB_URL: c.execute("SELECT password FROM users_v6 WHERE username = %s", (username,))
+    else: c.execute("SELECT password FROM users_v6 WHERE username = ?", (username,))
+    row = c.fetchone()
+    
+    # もしパスワードが違ったらエラーを返す
+    if not row or row[0] != data.current_password:
+        conn.close()
+        raise HTTPException(status_code=400, detail="現在のパスワードが違います")
+    
+    # 2. 新しいパスワードでデータベースを上書き保存
+    if DB_URL: c.execute("UPDATE users_v6 SET password = %s WHERE username = %s", (data.new_password, username))
+    else: c.execute("UPDATE users_v6 SET password = ? WHERE username = ?", (data.new_password, username))
+    
+    conn.commit()
+    conn.close()
+    return {"message": "パスワードを更新しました"}
+
+
 @app.get("/")
 def read_index(): return FileResponse("index.html")
     
 @app.get("/favicon.ico")
 def get_favicon(): return FileResponse("favicon.ico")
 
-
-# ★ "Cache-Control": "no-cache" を追加して、ブラウザにサボるなと命令する
-@app.get("/style.css")
-def get_css(): 
-    return FileResponse("style.css", headers={"Cache-Control": "no-cache"})
-
+# ★ 新しく作ったJSファイルを配る設定
 @app.get("/script.js")
-def get_script(): 
-    return FileResponse("script.js", headers={"Cache-Control": "no-cache"})
-    
+def get_script():
+    return FileResponse("script.js")
 
+@app.get("/style.css")
+def get_css(): return FileResponse("style.css")
+    
 @app.get("/icons/{filename}")
 def get_custom_icon(filename: str):
     if filename in ["kitsu_pink.ico", "kitsu_gray.ico", "kitsu_disabled.ico"]: return FileResponse(filename)
