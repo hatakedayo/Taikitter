@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -7,11 +8,13 @@
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="/style.css">
 </head>
+
 <body>
     <!-- 🔑 ログイン画面 -->
     <div id="login-screen" class="container">
         <div class="site-branding">
-            <img src="/favicon.ico" alt="Taikitter Logo"><h1>Taikitter</h1>
+            <img src="/favicon.ico" alt="Taikitter Logo">
+            <h1>Taikitter</h1>
         </div>
         <h2>誰がログインしますか？</h2>
         <div id="userGrid" class="user-grid"></div>
@@ -31,7 +34,9 @@
         </div>
 
         <!-- ① ホームタブ -->
-        <div id="view-home" class="tab-content active"><div id="timeline"></div></div>
+        <div id="view-home" class="tab-content active">
+            <div id="timeline"></div>
+        </div>
 
         <!-- ② 通知タブ -->
         <div id="view-notifications" class="tab-content">
@@ -44,12 +49,19 @@
         <!-- ③ プロフィールタブ -->
         <div id="view-profile" class="tab-content">
             <div style="padding: 30px 20px; text-align: center;">
-                <img id="profile-large-icon" src="" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 15px;">
+                <img id="profile-large-icon" src=""
+                    style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 15px;">
                 <h2 id="profile-name" style="margin: 0 0 5px 0;"></h2>
-                <button onclick="openIconModal()" style="margin-top: 15px; background: white; border: 1px solid #cfd9de; padding: 10px 20px; border-radius: 9999px; font-weight: bold; cursor: pointer;">
+                <button onclick="openIconModal()"
+                    style="margin-top: 15px; background: white; border: 1px solid #cfd9de; padding: 10px 20px; border-radius: 9999px; font-weight: bold; cursor: pointer;">
                     プロフィール写真を編集
                 </button>
             </div>
+            <!-- ★ 追加：パスワード変更ボタン -->
+            <button onclick="openPasswordModal()"
+                style="background: white; border: 1px solid #cfd9de; padding: 10px 20px; border-radius: 9999px; font-weight: bold; cursor: pointer; color: #536471;">
+                パスワードを変更
+            </button>
         </div>
 
         <!-- ④ ★ 新設：スレッド（会話詳細）タブ -->
@@ -60,11 +72,21 @@
 
         <!-- ボトムナビ -->
         <div class="bottom-nav">
-            <div class="nav-item active" id="nav-home" onclick="switchTab('home')"><div class="nav-icon">🏠</div><span>ホーム</span></div>
-            <div class="nav-item" onclick="openPostModal()"><div class="nav-icon">➕</div><span>投稿</span></div>
-            <div class="nav-item" id="nav-notifications" onclick="switchTab('notifications')"><div class="nav-icon">🔔</div><span>通知</span></div>
-            <div class="nav-item" id="nav-profile" onclick="switchTab('profile')"><div class="nav-icon">👤</div><span>プロフ</span></div>
-            <div class="nav-item" onclick="logout()"><div class="nav-icon">🚪</div><span>ログアウト</span></div>
+            <div class="nav-item active" id="nav-home" onclick="switchTab('home')">
+                <div class="nav-icon">🏠</div><span>ホーム</span>
+            </div>
+            <div class="nav-item" onclick="openPostModal()">
+                <div class="nav-icon">➕</div><span>投稿</span>
+            </div>
+            <div class="nav-item" id="nav-notifications" onclick="switchTab('notifications')">
+                <div class="nav-icon">🔔</div><span>通知</span>
+            </div>
+            <div class="nav-item" id="nav-profile" onclick="switchTab('profile')">
+                <div class="nav-icon">👤</div><span>プロフ</span>
+            </div>
+            <div class="nav-item" onclick="logout()">
+                <div class="nav-icon">🚪</div><span>ログアウト</span>
+            </div>
         </div>
     </div>
 
@@ -89,9 +111,11 @@
                 <button class="cancel-btn" onclick="closeReplyModal()">キャンセル</button>
                 <button class="save-btn" onclick="sendReply()">返信</button>
             </div>
-            <div style="margin-bottom: 15px; padding-left: 15px; border-left: 2px solid #cfd9de; color: #536471; font-size: 0.9em;">
+            <div
+                style="margin-bottom: 15px; padding-left: 15px; border-left: 2px solid #cfd9de; color: #536471; font-size: 0.9em;">
                 返信先: <strong id="replyTargetName"></strong>
-                <div id="replyTargetText" style="margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+                <div id="replyTargetText"
+                    style="margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
             </div>
             <div class="post-input-area">
                 <img id="myIconReplyModal" src="" alt="">
@@ -106,10 +130,32 @@
         <div class="modal-content" style="text-align: center;">
             <h3>写真の変更</h3>
             <input type="file" id="iconFileInput" accept="image/jpeg, image/png" style="margin: 20px 0; width: 100%;">
-            <button onclick="saveIcon()" style="padding: 8px 20px; border-radius: 9999px; border: none; font-weight: bold; background: #1d9bf0; color: white;">アップロード</button>
+            <button onclick="saveIcon()"
+                style="padding: 8px 20px; border-radius: 9999px; border: none; font-weight: bold; background: #1d9bf0; color: white;">アップロード</button>
+        </div>
+    </div>
+
+    <!-- ★ 新設：パスワード変更用モーダル -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content" style="text-align: center;">
+            <h3>パスワードの変更</h3>
+            <div class="password-box" style="margin: 20px 0; width: 100%;">
+                <input type="password" id="currentPasswordInput" placeholder="現在のパスワード"
+                    style="margin-bottom:10px; width:100%; box-sizing:border-box;">
+                <input type="password" id="newPasswordInput" placeholder="新しいパスワード"
+                    style="margin-bottom:10px; width:100%; box-sizing:border-box;">
+                <input type="password" id="confirmPasswordInput" placeholder="新しいパスワード（確認用）"
+                    style="width:100%; box-sizing:border-box;">
+            </div>
+            <div id="passwordError" class="error-msg" style="margin-bottom: 15px;"></div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="closePasswordModal()" style="...">キャンセル</button>
+                <button onclick="savePassword()" style="...">変更する</button>
+            </div>
         </div>
     </div>
     <script src="/script.js"></script>
-    
+
 </body>
+
 </html>

@@ -47,6 +47,19 @@ function closeReplyModal() { document.getElementById("replyModal").style.display
 function openIconModal() { document.getElementById("iconModal").style.display = "flex"; }
 function closeIconModal() { document.getElementById("iconModal").style.display = "none"; }
 
+// ★ 新設：パスワード変更モーダルの操作
+function openPasswordModal() { 
+    document.getElementById("passwordModal").style.display = "flex"; 
+    document.getElementById("passwordError").style.display = "none";
+}
+function closePasswordModal() { 
+    document.getElementById("passwordModal").style.display = "none"; 
+    // 閉じる時に、入力欄を空っぽにリセットする
+    document.getElementById("currentPasswordInput").value = "";
+    document.getElementById("newPasswordInput").value = "";
+    document.getElementById("confirmPasswordInput").value = "";
+}
+
 // API通信関連
 async function loadUserGrid() {
     const response = await fetch("/users");
@@ -226,3 +239,44 @@ async function saveIcon() {
     await fetch("/me/icon", { method: "POST", body: formData });
     closeIconModal(); checkLoginStatus();
 }
+
+
+// ★ 新設：パスワードを保存する処理
+async function savePassword() {
+    const currentPw = document.getElementById("currentPasswordInput").value;
+    const newPw = document.getElementById("newPasswordInput").value;
+    const confirmPw = document.getElementById("confirmPasswordInput").value;
+    const errorDiv = document.getElementById("passwordError");
+    
+    // 1. 画面側での入力チェック（空欄がないか、2回の入力が一致しているか）
+    if (!currentPw || !newPw || !confirmPw) {
+        errorDiv.innerText = "すべての項目を入力してください";
+        errorDiv.style.display = "block";
+        return;
+    }
+    if (newPw !== confirmPw) {
+        errorDiv.innerText = "新しいパスワードが一致しません";
+        errorDiv.style.display = "block";
+        return;
+    }
+    
+    // 2. PythonのAPI（/me/password）にデータを送信
+    const response = await fetch("/me/password", {
+        method: "POST", 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_password: currentPw, new_password: newPw })
+    });
+    
+    // 3. 成功した場合の処理（アラートを出して、強制ログアウト）
+    if (response.ok) {
+        alert("パスワードを変更しました！\n安全のため、新しいパスワードでもう一度ログインしてください。");
+        closePasswordModal();
+        logout(); 
+    } else {
+        // 失敗した場合（現在のパスワードが違うなど）はエラー文字を表示
+        const data = await response.json();
+        errorDiv.innerText = data.detail || "エラーが発生しました";
+        errorDiv.style.display = "block";
+    }
+}
+
