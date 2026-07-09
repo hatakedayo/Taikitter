@@ -129,10 +129,10 @@ function createPostElement(post, isMainInThread = false) {
     div.className = "post" + (isMainInThread ? " main-post-in-thread" : "");
 
     let likeClass = "action-btn like-btn";
-    let heartImgSrc = "/icons/kitsu_gray.ico";
+    let heartImgSrc = "/icons/kitsu_gray.svg";
     let canLike = true;
     if (post.name === currentLoggedInUser) {
-        likeClass += " disabled"; heartImgSrc = "/icons/kitsu_disabled.ico"; canLike = false;
+        likeClass += " disabled"; heartImgSrc = "/icons/kitsu_pink.svg"; canLike = false;
     } else if (post.is_liked) {
         likeClass += " liked"; heartImgSrc = "/icons/kitsu_pink.svg";
     }
