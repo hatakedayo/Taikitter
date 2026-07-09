@@ -70,7 +70,7 @@ async function loadUserGrid() {
         const card = document.createElement("div");
         card.className = "user-card";
         card.id = `card-${user.username}`;
-        card.innerHTML = `<img src="/users/${encodeURIComponent(user.username)}/icon?t=${Date.now()}" alt=""><div>${user.username}</div>`;
+        card.innerHTML = `<img src="/users/${encodeURIComponent(user.username)}/icon" alt=""><div>${user.username}</div>`;
         card.onclick = () => selectUser(user.username);
         grid.appendChild(card);
     });
@@ -138,7 +138,7 @@ function createPostElement(post, isMainInThread = false) {
     }
 
     div.innerHTML = `
-                <img class="user-icon" src="/users/${encodeURIComponent(post.name)}/icon?t=${Date.now()}" alt="">
+                <img class="user-icon" src="/users/${encodeURIComponent(post.name)}/icon" alt="">
                 <div class="post-right">
                     <div class="post-header">
                         <div class="post-name">@${post.name}</div>
