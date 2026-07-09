@@ -305,6 +305,9 @@ def read_index(): return FileResponse("index.html")
 @app.get("/favicon.ico")
 def get_favicon(): return FileResponse("favicon.ico")
 
+@app.get("/taikitter_logo.svg")
+def get_logo(): return FileResponse("taikitter_logo.svg")
+
 # ★ 新しく作ったJSファイルを配る設定
 @app.get("/script.js")
 def get_script():
