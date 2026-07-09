@@ -132,7 +132,7 @@ function createPostElement(post, isMainInThread = false) {
     let heartImgSrc = "/icons/kitsu_gray.svg";
     let canLike = true;
     if (post.name === currentLoggedInUser) {
-        likeClass += " disabled"; heartImgSrc = "/icons/kitsu_pink.svg"; canLike = false;
+        likeClass += " disabled"; heartImgSrc = "/icons/kitsu_disabled.svg"; canLike = false;
     } else if (post.is_liked) {
         likeClass += " liked"; heartImgSrc = "/icons/kitsu_pink.svg";
     }

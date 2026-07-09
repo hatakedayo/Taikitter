@@ -318,5 +318,5 @@ def get_css(): return FileResponse("style.css")
     
 @app.get("/icons/{filename}")
 def get_custom_icon(filename: str):
-    if filename in ["kitsu_pink.svg", "kitsu_gray.svg"]: return FileResponse(filename)
+    if filename in ["kitsu_pink.svg", "kitsu_gray.svg", "kitsu_disabled.svg"]: return FileResponse(filename)
     return {"error": "画像が見つかりません"}
