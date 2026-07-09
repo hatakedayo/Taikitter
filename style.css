@@ -3,7 +3,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 
 /* ログイン画面 */
 .site-branding { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; }
-.site-branding img { width: 72px; height: 72px; border-radius: 15px; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+.site-branding img { width: 72px; height: 72px; border-radius: 15px; margin-bottom: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
 .site-branding h1 { margin: 0; font-size: 2.2em; color: #0f1419; letter-spacing: -1px; font-weight: 900; }
 #login-screen { padding: 40px 20px; text-align: center; }
 #login-screen h2 { font-size: 1.1em; color: #536471; margin-top: 0; }
@@ -36,7 +36,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .post-actions { margin-top: 12px; display: flex; gap: 30px; }
 .action-btn { color: #536471; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 1.2em; user-select: none; }
 .action-btn span { font-size: 0.8em; font-weight: bold; }
-.custom-heart-icon { width: 40px; height: 22px; object-fit: contain; }
+.custom-heart-icon { width: 35px; height: 22px; object-fit: contain; }
 .like-btn.disabled { cursor: not-allowed; }
 .reply-btn:hover { color: #1d9bf0; }
 
