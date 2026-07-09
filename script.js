@@ -134,7 +134,7 @@ function createPostElement(post, isMainInThread = false) {
     if (post.name === currentLoggedInUser) {
         likeClass += " disabled"; heartImgSrc = "/icons/kitsu_disabled.ico"; canLike = false;
     } else if (post.is_liked) {
-        likeClass += " liked"; heartImgSrc = "/icons/kitsu_pink.ico";
+        likeClass += " liked"; heartImgSrc = "/icons/kitsu_pink.svg";
     }
 
     div.innerHTML = `
@@ -146,11 +146,11 @@ function createPostElement(post, isMainInThread = false) {
                     </div>
                     <div class="post-text"></div>
                     <div class="post-actions">
-                        <div class="action-btn reply-btn">💬 <span>${post.reply_count > 0 ? post.reply_count : ''}</span></div>
                         <div class="${likeClass} like-trigger">
                             <img src="${heartImgSrc}" class="custom-heart-icon" alt="heart"> 
                             <span style="${post.is_liked ? 'color: #f91880;' : ''}">${post.like_count > 0 ? post.like_count : ''}</span>
                         </div>
+                        <div class="action-btn reply-btn">💬 <span>${post.reply_count > 0 ? post.reply_count : ''}</span></div>                        
                         <div class="action-btn view-btn">📊 <span>${post.view_count > 0 ? post.view_count : 0}</span></div>
                     </div>
                 </div>
