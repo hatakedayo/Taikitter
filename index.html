@@ -48,20 +48,23 @@
 
         <!-- ③ プロフィールタブ -->
         <div id="view-profile" class="tab-content">
-            <div style="padding: 30px 20px; text-align: center;">
-                <img id="profile-large-icon" src=""
-                    style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 15px;">
+            <div style="padding: 30px 20px; text-align: center; border-bottom: 1px solid #eff3f4;">
+                <img id="profile-large-icon" src="" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 15px;">
                 <h2 id="profile-name" style="margin: 0 0 5px 0;"></h2>
-                <button onclick="openIconModal()"
-                    style="margin-top: 15px; background: white; border: 1px solid #cfd9de; padding: 10px 20px; border-radius: 9999px; font-weight: bold; cursor: pointer;">
-                    プロフィール写真を編集
-                </button>
-                <!-- ★ 追加：パスワード変更ボタン -->
-                <button onclick="openPasswordModal()"
-                    style="background: white; border: 1px solid #cfd9de; padding: 10px 20px; border-radius: 9999px; font-weight: bold; cursor: pointer; color: #536471;">
-                    パスワードを変更
-                </button>
+                
+                <!-- ★ 自分のプロフィールだった時だけ表示するボタンの箱 -->
+                <div id="my-profile-actions" style="display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 20px;">
+                    <button onclick="openIconModal()" style="background: white; border: 1px solid #cfd9de; padding: 10px 20px; border-radius: 9999px; font-weight: bold; cursor: pointer;">
+                        プロフィール写真を編集
+                    </button>
+                    <button onclick="openPasswordModal()" style="background: white; border: 1px solid #cfd9de; padding: 10px 20px; border-radius: 9999px; font-weight: bold; cursor: pointer; color: #536471;">
+                        パスワードを変更
+                    </button>
+                </div>
             </div>
+            
+            <!-- ★ ここにその人の投稿一覧が表示されます -->
+            <div id="profile-timeline"></div>
         </div>
 
         <!-- ④ ★ 新設：スレッド（会話詳細）タブ -->

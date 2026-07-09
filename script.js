@@ -1,10 +1,10 @@
-
 let selectedUsername = "";
 let currentLoggedInUser = "";
 
 window.onload = function () { loadUserGrid(); checkLoginStatus(); };
 
-function switchTab(tabName) {
+// ★ 変更：引数に targetUser（誰の画面を見るか）を追加しました
+function switchTab(tabName, targetUser = null) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
 
@@ -12,27 +12,70 @@ function switchTab(tabName) {
 
     const headerTitle = document.getElementById('header-title');
     const headerBack = document.getElementById('header-back');
-    headerBack.style.display = 'none'; // 基本は非表示
+    headerBack.style.display = 'none';
 
     if (tabName === 'home') {
         document.getElementById('nav-home').classList.add('active');
         headerTitle.innerText = 'ホーム';
-        loadPosts(); // ホームに戻るたびに最新化
+        loadPosts();
     } else if (tabName === 'notifications') {
         document.getElementById('nav-notifications').classList.add('active');
         headerTitle.innerText = '通知';
     } else if (tabName === 'profile') {
-        document.getElementById('nav-profile').classList.add('active');
+        // ★ 誰のプロフィールを見るか（指定がなければ自分）
+        const viewUser = targetUser || currentLoggedInUser;
+
+        // 自分のプロフィールなら下の「プロフ」アイコンを光らせる。他人なら「←」戻るボタンを出す。
+        if (viewUser === currentLoggedInUser) {
+            document.getElementById('nav-profile').classList.add('active');
+        } else {
+            headerBack.style.display = 'block';
+        }
+
         headerTitle.innerText = 'プロフィール';
-        document.getElementById('profile-name').innerText = "@" + currentLoggedInUser;
-        document.getElementById('profile-large-icon').src = `/users/${encodeURIComponent(currentLoggedInUser)}/icon?t=${Date.now()}`;
+        document.getElementById('profile-name').innerText = "@" + viewUser;
+        document.getElementById('profile-large-icon').src = `/users/${encodeURIComponent(viewUser)}/icon?t=${Date.now()}`;
+
+        // 自分なら設定ボタンを出し、他人なら隠す
+        if (viewUser === currentLoggedInUser) {
+            document.getElementById('my-profile-actions').style.display = 'flex';
+        } else {
+            document.getElementById('my-profile-actions').style.display = 'none';
+        }
+
+        // ★ その人の投稿一覧を読み込む
+        loadUserPosts(viewUser);
+
     } else if (tabName === 'thread') {
         headerTitle.innerText = 'ポスト';
-        headerBack.style.display = 'block'; // スレッドの時は戻るボタンを表示
+        headerBack.style.display = 'block';
     }
 }
 
-// モーダル操作
+// ★ 新設：他人のプロフィールを開く処理
+function viewUserProfile(username) {
+    switchTab('profile', username);
+}
+
+// ★ 新設：特定のユーザーの投稿だけを読み込んで表示する処理
+async function loadUserPosts(username) {
+    const timeline = document.getElementById("profile-timeline");
+    timeline.innerHTML = "<div style='text-align:center; padding: 20px; color:#536471;'>読み込み中...</div>";
+
+    const response = await fetch(`/users/${encodeURIComponent(username)}/posts`);
+    if (!response.ok) return;
+    const posts = await response.json();
+    timeline.innerHTML = "";
+
+    if (posts.length === 0) {
+        timeline.innerHTML = "<div style='text-align:center; padding: 40px; color:#536471;'>まだ投稿はありません</div>";
+        return;
+    }
+
+    posts.forEach(post => timeline.appendChild(createPostElement(post)));
+}
+
+// モーダル操作群
 function openPostModal() { document.getElementById("createPostModal").style.display = "flex"; }
 function closePostModal() { document.getElementById("createPostModal").style.display = "none"; }
 
@@ -47,14 +90,12 @@ function closeReplyModal() { document.getElementById("replyModal").style.display
 function openIconModal() { document.getElementById("iconModal").style.display = "flex"; }
 function closeIconModal() { document.getElementById("iconModal").style.display = "none"; }
 
-// ★ 新設：パスワード変更モーダルの操作
 function openPasswordModal() {
     document.getElementById("passwordModal").style.display = "flex";
     document.getElementById("passwordError").style.display = "none";
 }
 function closePasswordModal() {
     document.getElementById("passwordModal").style.display = "none";
-    // 閉じる時に、入力欄を空っぽにリセットする
     document.getElementById("currentPasswordInput").value = "";
     document.getElementById("newPasswordInput").value = "";
     document.getElementById("confirmPasswordInput").value = "";
@@ -75,6 +116,7 @@ async function loadUserGrid() {
         grid.appendChild(card);
     });
 }
+
 function selectUser(username) {
     selectedUsername = username;
     document.querySelectorAll(".user-card").forEach(c => c.classList.remove("selected"));
@@ -120,7 +162,6 @@ async function logout() {
     checkLoginStatus(); loadUserGrid();
 }
 
-// ★ HTMLを安全に組み立てるための魔法の関数（普通の投稿も返信もこれで描画します）
 function createPostElement(post, isMainInThread = false) {
     const date = new Date(post.created_at + "Z");
     const timeString = date.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -137,32 +178,37 @@ function createPostElement(post, isMainInThread = false) {
         likeClass += " liked"; heartImgSrc = "/icons/kitsu_pink.svg";
     }
 
+    // ★ 変更：アイコンと名前にマウスポインターを乗せた時に「指マーク」になるようにし、クリック可能（clickable-user）にしました
     div.innerHTML = `
-                <img class="user-icon" src="/users/${encodeURIComponent(post.name)}/icon" alt="">
-                <div class="post-right">
-                    <div class="post-header">
-                        <div class="post-name">@${post.name}</div>
-                        <div class="post-time">${timeString}</div>
-                    </div>
-                    <div class="post-text"></div>
-                    <div class="post-actions">
-                        <div class="${likeClass} like-trigger">
-                            <img src="${heartImgSrc}" class="custom-heart-icon" alt="heart"> 
-                            <span style="${post.is_liked ? 'color: #f91880;' : ''}">${post.like_count > 0 ? post.like_count : ''}</span>
-                        </div>
-                        <div class="action-btn reply-btn">
-                        <img src="/icons/reply.svg" class="custom-reply-icon" alt="reply">
-                        <span>${post.reply_count > 0 ? post.reply_count : ''}</span>
-                        </div>                        
-                        <div class="action-btn view-btn">📊 <span>${post.view_count > 0 ? post.view_count : 0}</span></div>
-                    </div>
+        <img class="user-icon clickable-user" src="/users/${encodeURIComponent(post.name)}/icon" alt="" style="cursor: pointer;">
+        <div class="post-right">
+            <div class="post-header">
+                <div class="post-name clickable-user" style="cursor: pointer;">@${post.name}</div>
+                <div class="post-time">${timeString}</div>
+            </div>
+            <div class="post-text"></div>
+            <div class="post-actions">
+                <div class="${likeClass} like-trigger">
+                    <img src="${heartImgSrc}" class="custom-heart-icon" alt="heart"> 
+                    <span style="${post.is_liked ? 'color: #f91880;' : ''}">${post.like_count > 0 ? post.like_count : ''}</span>
                 </div>
-            `;
+                <img src="/icons/reply.svg" class="custom-heart-icon" alt="heart"> 
+                <div class="action-btn reply-btn">
+                <span>${post.reply_count > 0 ? post.reply_count : ''}</span>
+                </div>
+                <div class="action-btn view-btn">📊 <span>${post.view_count > 0 ? post.view_count : 0}</span></div>
+            </div>
+        </div>
+    `;
 
-    // テキストやクリック処理を安全に設定
     const textDiv = div.querySelector(".post-text");
     textDiv.textContent = post.content;
     textDiv.onclick = () => viewThread(post.id);
+
+    // ★ 追加：アイコンか名前を押したらその人のプロフィールを開く
+    div.querySelectorAll('.clickable-user').forEach(el => {
+        el.onclick = () => viewUserProfile(post.name);
+    });
 
     div.querySelector(".reply-btn").onclick = () => openReplyModal(post.id, post.name, post.content);
     if (canLike) div.querySelector(".like-trigger").onclick = () => toggleLike(post.id);
@@ -179,7 +225,6 @@ async function loadPosts() {
     posts.forEach(post => timeline.appendChild(createPostElement(post)));
 }
 
-// ★ 新機能：スレッド（会話）画面を開く処理
 async function viewThread(postId) {
     const response = await fetch(`/posts/${postId}/thread`);
     if (!response.ok) return;
@@ -187,7 +232,7 @@ async function viewThread(postId) {
 
     const threadMain = document.getElementById("thread-main");
     threadMain.innerHTML = "";
-    threadMain.appendChild(createPostElement(data.main_post, true)); // 親は文字を大きく
+    threadMain.appendChild(createPostElement(data.main_post, true));
 
     const threadReplies = document.getElementById("thread-replies");
     threadReplies.innerHTML = "";
@@ -207,7 +252,6 @@ async function sendPost() {
     closePostModal(); switchTab('home');
 }
 
-// ★ 新機能：返信を送信する処理
 async function sendReply() {
     const content = document.getElementById("replyContentInput").value;
     const targetId = parseInt(document.getElementById("replyTargetId").value);
@@ -220,15 +264,18 @@ async function sendReply() {
 
     document.getElementById("replyContentInput").value = "";
     closeReplyModal();
-    viewThread(targetId); // 送信後はスレッド画面を開く
+    viewThread(targetId);
 }
 
 async function toggleLike(postId) {
     await fetch(`/posts/${postId}/like`, { method: "POST" });
-    // 今どの画面を開いているかによって、更新する場所を変える
     if (document.getElementById("view-thread").classList.contains("active")) {
         const currentPostId = document.querySelector(".main-post-in-thread .reply-btn").onclick.toString().match(/\d+/)[0];
         viewThread(currentPostId);
+    } else if (document.getElementById("view-profile").classList.contains("active")) {
+        // ★ 追加：プロフィール画面でいいねした時は、そのプロフィール画面を更新する
+        const currentProfileUser = document.getElementById("profile-name").innerText.replace("@", "");
+        loadUserPosts(currentProfileUser);
     } else {
         loadPosts();
     }
@@ -243,15 +290,12 @@ async function saveIcon() {
     closeIconModal(); checkLoginStatus();
 }
 
-
-// ★ 新設：パスワードを保存する処理
 async function savePassword() {
     const currentPw = document.getElementById("currentPasswordInput").value;
     const newPw = document.getElementById("newPasswordInput").value;
     const confirmPw = document.getElementById("confirmPasswordInput").value;
     const errorDiv = document.getElementById("passwordError");
 
-    // 1. 画面側での入力チェック（空欄がないか、2回の入力が一致しているか）
     if (!currentPw || !newPw || !confirmPw) {
         errorDiv.innerText = "すべての項目を入力してください";
         errorDiv.style.display = "block";
@@ -263,23 +307,19 @@ async function savePassword() {
         return;
     }
 
-    // 2. PythonのAPI（/me/password）にデータを送信
     const response = await fetch("/me/password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ current_password: currentPw, new_password: newPw })
     });
 
-    // 3. 成功した場合の処理（アラートを出して、強制ログアウト）
     if (response.ok) {
         alert("パスワードを変更しました！\n安全のため、新しいパスワードでもう一度ログインしてください。");
         closePasswordModal();
         logout();
     } else {
-        // 失敗した場合（現在のパスワードが違うなど）はエラー文字を表示
         const data = await response.json();
         errorDiv.innerText = data.detail || "エラーが発生しました";
         errorDiv.style.display = "block";
     }
 }
-

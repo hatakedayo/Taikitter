@@ -299,6 +299,43 @@ def change_password(data: PasswordChangeData, username: str = Depends(get_curren
     return {"message": "パスワードを更新しました"}
 
 
+# ★ 新設：特定のユーザーの投稿一覧を取得するAPI
+@app.get("/users/{username}/posts")
+def get_user_posts(username: str, current_user: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    if DB_URL: 
+        c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE name = %s AND parent_id IS NULL ORDER BY id DESC", (username,))
+    else: 
+        c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE name = ? AND parent_id IS NULL ORDER BY id DESC", (username,))
+    posts_data = c.fetchall()
+    
+    c.execute("SELECT post_id, username FROM likes")
+    likes_map = {}
+    for pid, uname in c.fetchall(): likes_map.setdefault(pid, []).append(uname)
+        
+    c.execute("SELECT post_id, username FROM views")
+    views_map = {}
+    for pid, uname in c.fetchall(): views_map.setdefault(pid, []).append(uname)
+    
+    c.execute("SELECT parent_id, COUNT(id) FROM posts_v6 WHERE parent_id IS NOT NULL GROUP BY parent_id")
+    replies_map = dict(c.fetchall())
+        
+    posts = []
+    for row in posts_data:
+        pid, post_author = row[0], row[1]
+        posts.append({
+            "id": pid, "name": post_author, "content": row[2], "created_at": row[3],
+            "like_count": len(likes_map.get(pid, [])),
+            "is_liked": current_user in likes_map.get(pid, []),
+            "view_count": len([u for u in views_map.get(pid, []) if u != post_author]),
+            "reply_count": replies_map.get(pid, 0)
+        })
+    conn.close()
+    return posts
+
+
 @app.get("/")
 def read_index(): return FileResponse("index.html")
     
