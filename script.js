@@ -192,8 +192,8 @@ function createPostElement(post, isMainInThread = false) {
                     <img src="${heartImgSrc}" class="custom-heart-icon" alt="heart"> 
                     <span style="${post.is_liked ? 'color: #f91880;' : ''}">${post.like_count > 0 ? post.like_count : ''}</span>
                 </div>
-                <img src="/icons/reply.svg" class="custom-heart-icon" alt="heart"> 
                 <div class="action-btn reply-btn">
+                <img src="/icons/reply.svg" class="custom-heart-icon" alt="heart"> 
                 <span>${post.reply_count > 0 ? post.reply_count : ''}</span>
                 </div>
                 <div class="action-btn view-btn">📊 <span>${post.view_count > 0 ? post.view_count : 0}</span></div>
