@@ -190,11 +190,11 @@ function createPostElement(post, isMainInThread = false) {
             <div class="post-actions">
                 <div class="${likeClass} like-trigger">
                     <img src="${heartImgSrc}" class="custom-heart-icon" alt="heart"> 
-                    <span style="${post.is_liked ? 'color: #f91880;' : ''}">${post.like_count > 0 ? post.like_count : '&nbsp;'}</span>
+                    <span style="${post.is_liked ? 'color: #f91880;' : ''}">${post.like_count > 0 ? post.like_count : ''}</span>
                 </div>
                 <div class="action-btn reply-btn">
                 <img src="/icons/reply.svg" class="custom-heart-icon" alt="heart"> 
-                <span>${post.reply_count > 0 ? post.reply_count : '&nbsp;'}</span>
+                <span>${post.reply_count > 0 ? post.reply_count : ''}</span>
                 </div>
                 <div class="action-btn view-btn">📊 <span>${post.view_count > 0 ? post.view_count : 0}</span></div>
             </div>
