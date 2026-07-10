@@ -44,6 +44,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .action-btn span { font-size: 0.8em; font-weight: bold; }
 .custom-heart-icon { width: 30px; height: 18px; object-fit: contain; }
 .custom-reply-icon { width: 20px; height: 18px; object-fit: contain; }
+.custom-view-icon { width: 25px; height: 18px; object-fit: contain; }
 .like-btn.disabled { cursor: not-allowed; }
 .reply-btn:hover { color: #1d9bf0; }
 

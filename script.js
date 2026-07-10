@@ -196,7 +196,10 @@ function createPostElement(post, isMainInThread = false) {
                 <img src="/icons/reply.svg" class="custom-heart-icon" alt="heart"> 
                 <span>${post.reply_count > 0 ? post.reply_count : ''}</span>
                 </div>
-                <div class="action-btn view-btn">📊 <span>${post.view_count > 0 ? post.view_count : 0}</span></div>
+                <div class="action-btn view-btn">
+                <img src="/icons/view.svg" class="custom-view-icon" alt="view">
+                <span>${post.view_count > 0 ? post.view_count : 0}
+                </span></div>
             </div>
         </div>
     `;
