@@ -133,6 +133,8 @@
         <div class="modal-content" style="text-align: center;">
             <h3>写真の変更</h3>
             <input type="file" id="iconFileInput" accept="image/jpeg, image/png" style="margin: 20px 0; width: 100%;">
+            <button onclick="closeIconModal()"
+                    style="padding: 8px 20px; border-radius: 9999px; border: none; font-weight: bold; background: #efefef; cursor: pointer;">キャンセル</button>
             <button onclick="saveIcon()"
                 style="padding: 8px 20px; border-radius: 9999px; border: none; font-weight: bold; background: #1d9bf0; color: white;">アップロード</button>
         </div>
@@ -142,7 +144,7 @@
     <div id="passwordModal" class="modal">
         <div class="modal-content" style="text-align: center;">
             <h3>パスワードの変更</h3>
-            <div class="password-box" style="margin: 20px 0; width: 100%;">
+            <div class="password-box" style="margin: 20px auto; width: 100%;">
                 <input type="password" id="currentPasswordInput" placeholder="現在のパスワード"
                     style="margin-bottom:10px; width:100%; box-sizing:border-box;">
                 <input type="password" id="newPasswordInput" placeholder="新しいパスワード"

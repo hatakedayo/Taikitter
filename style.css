@@ -33,7 +33,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .post-name { font-weight: bold; font-size: 1em; }
 .post-time { font-size: 0.85em; color: #536471; }
 .post-text { margin: 0; white-space: pre-wrap; font-size: 0.95em; line-height: 1.4; word-wrap: break-word; cursor: pointer; }
-.post-actions { margin-top: 12px; display: flex; gap: 30px; }
+.post-actions { margin-top: 12px; display: flex; gap: 15px; }
 /* アクションボタンの数字の箱の幅を固定する */
 .post-actions span {
     display: inline-block;
