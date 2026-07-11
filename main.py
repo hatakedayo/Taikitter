@@ -219,9 +219,8 @@ def get_posts(username: str = Depends(get_current_user)):
 def get_thread(post_id: int, username: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
-    
-    if DB_URL: c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE id = %s", (post_id,))
-    else: c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE id = ?", (post_id,))
+    if DB_URL: c.execute("SELECT id, name, content, created_at, image_url FROM posts_v6 WHERE id = %s", (post_id,))
+    else: c.execute("SELECT id, name, content, created_at, image_url FROM posts_v6 WHERE id = ?", (post_id,))
     main_data = c.fetchone()
     if not main_data:
         conn.close()
@@ -234,11 +233,9 @@ def get_thread(post_id: int, username: str = Depends(get_current_user)):
     c.execute("SELECT post_id, username FROM likes")
     likes_map = {}
     for pid, uname in c.fetchall(): likes_map.setdefault(pid, []).append(uname)
-        
     c.execute("SELECT post_id, username FROM views")
     views_map = {}
     for pid, uname in c.fetchall(): views_map.setdefault(pid, []).append(uname)
-        
     c.execute("SELECT parent_id, COUNT(id) FROM posts_v6 WHERE parent_id IS NOT NULL GROUP BY parent_id")
     replies_map = dict(c.fetchall())
     
@@ -252,7 +249,6 @@ def get_thread(post_id: int, username: str = Depends(get_current_user)):
             "reply_count": replies_map.get(pid, 0),
             "image_url": row[4] # ★ 追加
         }
-        
     conn.close()
     return {"main_post": format_post(main_data), "replies": [format_post(r) for r in replies_data]}
 
@@ -343,21 +339,16 @@ def change_password(data: PasswordChangeData, username: str = Depends(get_curren
 def get_user_posts(username: str, current_user: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
-    
-    if DB_URL: 
-        c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE name = %s AND parent_id IS NULL ORDER BY id DESC", (username,))
-    else: 
-        c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE name = ? AND parent_id IS NULL ORDER BY id DESC", (username,))
+    if DB_URL: c.execute("SELECT id, name, content, created_at, image_url FROM posts_v6 WHERE name = %s AND parent_id IS NULL ORDER BY id DESC", (username,))
+    else: c.execute("SELECT id, name, content, created_at, image_url FROM posts_v6 WHERE name = ? AND parent_id IS NULL ORDER BY id DESC", (username,))
     posts_data = c.fetchall()
     
     c.execute("SELECT post_id, username FROM likes")
     likes_map = {}
     for pid, uname in c.fetchall(): likes_map.setdefault(pid, []).append(uname)
-        
     c.execute("SELECT post_id, username FROM views")
     views_map = {}
     for pid, uname in c.fetchall(): views_map.setdefault(pid, []).append(uname)
-    
     c.execute("SELECT parent_id, COUNT(id) FROM posts_v6 WHERE parent_id IS NOT NULL GROUP BY parent_id")
     replies_map = dict(c.fetchall())
         
