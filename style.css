@@ -40,7 +40,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
     min-width: 24px;  /* ここで箱の幅を固定！ */
     text-align: left; /* 数字を左詰めに */
 }
-.action-btn { color: #536471; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 1.2em; user-select: none; }
+.action-btn { color: #536471; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 1.2em; user-select: none; }
 .action-btn span { font-size: 0.8em; font-weight: bold; }
 .custom-heart-icon { width: 30px; height: 18px; object-fit: contain; }
 .custom-reply-icon { width: 20px; height: 18px; object-fit: contain; }
