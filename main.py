@@ -1,3 +1,4 @@
+
 import os
 import sqlite3
 import urllib.parse
@@ -7,12 +8,21 @@ from pydantic import BaseModel
 from fastapi.responses import FileResponse, Response as FastAPIResponse
 from datetime import datetime, timezone
 from typing import Optional
+import cloudinary
+import cloudinary.uploader
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
     allow_headers=["*"], allow_credentials=True,
+)
+
+cloudinary.config(
+    cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    api_key = os.environ.get("CLOUDINARY_API_KEY"),
+    api_secret = os.environ.get("CLOUDINARY_API_SECRET"),
+    secure = True
 )
 
 class LoginData(BaseModel):
@@ -23,6 +33,7 @@ class LoginData(BaseModel):
 class PostData(BaseModel):
     content: str
     parent_id: Optional[int] = None
+    image_url: Optional[str] = None
 
 # ★ 新設：パスワード変更用のデータ型
 class PasswordChangeData(BaseModel):
@@ -59,6 +70,10 @@ def init_db():
         c.execute("ALTER TABLE posts_v6 ADD COLUMN parent_id INTEGER DEFAULT NULL")
     except:
         pass # すでに追加されている場合はスルーします
+
+    try:
+        c.execute("ALTER TABLE posts_v6 ADD COLUMN image_url TEXT DEFAULT NULL")
+    except: pass
     
     # ★ ここは設定した友達の日本語名に書き換えてください
     friends = [
@@ -154,8 +169,8 @@ async def update_icon(file: UploadFile = File(...), username: str = Depends(get_
 def get_posts(username: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
-    # ★ タイムラインには「返信ではない普通の投稿（parent_id IS NULL）」だけを表示する
-    c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE parent_id IS NULL ORDER BY id DESC")
+
+    c.execute("SELECT id, name, content, created_at, image_url FROM posts_v6 WHERE parent_id IS NULL ORDER BY id DESC")
     posts_data = c.fetchall()
     
     if posts_data:
@@ -185,7 +200,8 @@ def get_posts(username: str = Depends(get_current_user)):
             "like_count": len(likes_map.get(pid, [])),
             "is_liked": username in likes_map.get(pid, []),
             "view_count": len([u for u in views_map.get(pid, []) if u != post_author]),
-            "reply_count": replies_map.get(pid, 0)
+            "reply_count": replies_map.get(pid, 0),
+            "image_url": row[4] # ★ 追加
         })
         
     conn.commit() 
@@ -227,7 +243,8 @@ def get_thread(post_id: int, username: str = Depends(get_current_user)):
             "like_count": len(likes_map.get(pid, [])),
             "is_liked": username in likes_map.get(pid, []),
             "view_count": len([u for u in views_map.get(pid, []) if u != author]),
-            "reply_count": replies_map.get(pid, 0)
+            "reply_count": replies_map.get(pid, 0),
+            "image_url": row[4] # ★ 追加
         }
         
     conn.close()
@@ -238,14 +255,30 @@ def create_post(post: PostData, username: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-    # ★ 返信先ID（parent_id）も一緒に保存する
     if DB_URL:
-        c.execute("INSERT INTO posts_v6 (name, content, created_at, parent_id) VALUES (%s, %s, %s, %s)", (username, post.content, now, post.parent_id))
+        c.execute("INSERT INTO posts_v6 (name, content, created_at, parent_id, image_url) VALUES (%s, %s, %s, %s, %s)", (username, post.content, now, post.parent_id, post.image_url))
     else:
-        c.execute("INSERT INTO posts_v6 (name, content, created_at, parent_id) VALUES (?, ?, ?, ?)", (username, post.content, now, post.parent_id))
+        c.execute("INSERT INTO posts_v6 (name, content, created_at, parent_id, image_url) VALUES (?, ?, ?, ?, ?)", (username, post.content, now, post.parent_id, post.image_url))
     conn.commit()
     conn.close()
     return {"message": "投稿完了！"}
+
+@app.post("/posts/image")
+async def upload_post_image(file: UploadFile = File(...), username: str = Depends(get_current_user)):
+    try:
+        file_bytes = await file.read()
+        # Cloudinaryに画像を送信。自動的にサイズ調整と最適化（圧縮）をかける設定を施しています
+        result = cloudinary.uploader.upload(
+            file_bytes,
+            transformation=[
+                {"width": 800, "crop": "limit"}, # 横幅は最大800pxに自動縮小
+                {"quality": "auto"},            # 画質を劣化させずに容量を自動最適化
+                {"fetch_format": "auto"}        # ブラウザに最適な形式(WebPなど)に自動変換
+            ]
+        )
+        return {"image_url": result["secure_url"]} # 生成された「https://...」のURLを返す
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/posts/{post_id}/like")
 def toggle_like(post_id: int, username: str = Depends(get_current_user)):
@@ -330,7 +363,8 @@ def get_user_posts(username: str, current_user: str = Depends(get_current_user))
             "like_count": len(likes_map.get(pid, [])),
             "is_liked": current_user in likes_map.get(pid, []),
             "view_count": len([u for u in views_map.get(pid, []) if u != post_author]),
-            "reply_count": replies_map.get(pid, 0)
+            "reply_count": replies_map.get(pid, 0),
+            "image_url": row[4] # ★ 追加
         })
     conn.close()
     return posts

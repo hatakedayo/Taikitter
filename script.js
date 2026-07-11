@@ -1,5 +1,8 @@
+
 let selectedUsername = "";
 let currentLoggedInUser = "";
+let selectedPostFile = null;
+
 
 window.onload = function () { loadUserGrid(); checkLoginStatus(); };
 
@@ -77,7 +80,33 @@ async function loadUserPosts(username) {
 
 // モーダル操作群
 function openPostModal() { document.getElementById("createPostModal").style.display = "flex"; }
-function closePostModal() { document.getElementById("createPostModal").style.display = "none"; }
+function closePostModal() { 
+    document.getElementById("createPostModal").style.display = "none"; 
+    document.getElementById("contentInput").value = "";
+    removeSelectedImage();
+}
+
+// ★ 新設：画像が選択された時にプレビューを表示する処理
+function previewPostImage() {
+    const fileInput = document.getElementById("postFileInput");
+    if (fileInput.files.length === 0) return;
+    
+    selectedPostFile = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById("postImagePreview").src = e.target.result;
+        document.getElementById("postImagePreviewContainer").style.display = "block";
+    };
+    reader.readAsDataURL(selectedPostFile);
+}
+
+// ★ 新設：選択された画像をキャンセルする処理
+function removeSelectedImage() {
+    selectedPostFile = null;
+    document.getElementById("postFileInput").value = "";
+    document.getElementById("postImagePreviewContainer").style.display = "none";
+    document.getElementById("postImagePreview").src = "";
+}
 
 function openReplyModal(postId, postName, postContent) {
     document.getElementById("replyTargetId").value = postId;
@@ -178,6 +207,11 @@ function createPostElement(post, isMainInThread = false) {
         likeClass += " liked"; heartImgSrc = "/icons/kitsu_pink.svg";
     }
 
+    let imageHtml = "";
+    if (post.image_url) {
+        imageHtml = `<div style="margin-top: 10px; max-height: 300px; overflow: hidden; border-radius: 12px; border: 1px solid #eff3f4;"><img src="${post.image_url}" style="width:100%; height:100%; object-fit:cover;"></div>`;
+    }
+
     // ★ 変更：アイコンと名前にマウスポインターを乗せた時に「指マーク」になるようにし、クリック可能（clickable-user）にしました
     div.innerHTML = `
         <img class="user-icon clickable-user" src="/users/${encodeURIComponent(post.name)}/icon" alt="" style="cursor: pointer;">
@@ -187,6 +221,7 @@ function createPostElement(post, isMainInThread = false) {
                 <div class="post-time">${timeString}</div>
             </div>
             <div class="post-text"></div>
+            ${imageHtml}
             <div class="post-actions">
                 <div class="${likeClass} like-trigger">
                     <img src="${heartImgSrc}" class="custom-heart-icon" alt="heart"> 
@@ -244,15 +279,57 @@ async function viewThread(postId) {
     switchTab('thread');
 }
 
+
+
 async function sendPost() {
     const content = document.getElementById("contentInput").value;
-    if (content === "") return;
+    if (content === "" && !selectedPostFile) return;
+
+    // 「ポストする」ボタンを一時的に無効化して連打を防ぐ
+    const saveBtn = document.querySelector("#createPostModal .save-btn");
+    saveBtn.innerText = "送信中...";
+    saveBtn.disabled = true;
+
+    let uploadedImageUrl = null;
+
+    // 1段階目：画像が選ばれていたら、まずCloudinaryにアップロードしてURLをもらう
+    if (selectedPostFile) {
+        const formData = new FormData();
+        formData.append("file", selectedPostFile);
+        
+        const imgResponse = await fetch("/posts/image", {
+            method: "POST",
+            body: formData
+        });
+        
+        if (imgResponse.ok) {
+            const imgData = await imgResponse.json();
+            uploadedImageUrl = imgData.image_url; // 「https://res.cloudinary.com/...」というURLが手に入る
+        } else {
+            alert("画像のアップロードに失敗しました。");
+            saveBtn.innerText = "ポストする";
+            saveBtn.disabled = false;
+            return;
+        }
+    }
+
+    // 2段階目：文章と画像のURLを合体させて、いつもの投稿APIに送信する
     await fetch("/posts", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: content })
+        method: "POST", 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+            content: content, 
+            parent_id: null,
+            image_url: uploadedImageUrl // ここで画像URLを渡す！
+        })
     });
-    document.getElementById("contentInput").value = "";
-    closePostModal(); switchTab('home');
+
+    // 送信ボタンを元に戻して画面を更新
+    saveBtn.innerText = "ポストする";
+    saveBtn.disabled = false;
+    
+    closePostModal(); 
+    switchTab('home');
 }
 
 async function sendReply() {

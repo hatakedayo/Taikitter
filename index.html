@@ -106,7 +106,25 @@
             </div>
             <div class="post-input-area">
                 <img id="myIconPostModal" src="" alt="">
-                <textarea id="contentInput" rows="5" placeholder="いまどうしてる？"></textarea>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+                    <textarea id="contentInput" rows="4" placeholder="いまどうしてる？"
+                        style="width:100%; border:none; resize:none; font-size:1.1em; outline:none;"></textarea>
+
+                    <div id="postImagePreviewContainer"
+                        style="display: none; position: relative; max-height: 200px; overflow: hidden; border-radius: 10px;">
+                        <img id="postImagePreview" src="" style="width: 100%; object-fit: cover;">
+                        <button onclick="removeSelectedImage()"
+                            style="position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.7); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-weight: bold;">✕</button>
+                    </div>
+
+                    <div style="display: flex; align-items: center; padding-top: 5px; border-top: 1px solid #eff3f4;">
+                        <button onclick="document.getElementById('postFileInput').click()"
+                            style="background: transparent; border: none; font-size: 1.3em; cursor: pointer; padding: 5px;"
+                            title="画像を追加">🖼️</button>
+                        <input type="file" id="postFileInput" accept="image/*" style="display: none;"
+                            onchange="previewPostImage()">
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -136,7 +154,8 @@
     <div id="iconModal" class="modal">
         <div class="modal-content" style="text-align: center;">
             <h3>写真の変更</h3>
-            <input type="file" id="iconFileInput" accept="image/jpeg, image/png" style="margin: 20px auto; width: 300px;">
+            <input type="file" id="iconFileInput" accept="image/jpeg, image/png"
+                style="margin: 20px auto; width: 300px;">
             <div style="display: flex; gap: 10px; justify-content: center;">
                 <button onclick="closeIconModal()"
                     style="padding: 8px 20px; border-radius: 9999px; border: none; font-weight: bold; background: #efefef; cursor: pointer;">キャンセル</button>
