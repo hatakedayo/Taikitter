@@ -209,7 +209,7 @@ function createPostElement(post, isMainInThread = false) {
 
     let imageHtml = "";
     if (post.image_url) {
-        imageHtml = `<div style="margin-top: 10px; max-height: 300px; overflow: hidden; border-radius: 12px; border: 1px solid #eff3f4;"><img src="${post.image_url}" style="width:100%; height:100%; object-fit:cover;"></div>`;
+        imageHtml = `<div style="margin-top: 10px; max-height: 600px; overflow: hidden; border-radius: 12px; border: 1px solid #eff3f4;"><img src="${post.image_url}" style="width:100%; height:100%; object-fit:cover;"></div>`;
     }
 
     // ★ 変更：アイコンと名前にマウスポインターを乗せた時に「指マーク」になるようにし、クリック可能（clickable-user）にしました
@@ -241,7 +241,7 @@ function createPostElement(post, isMainInThread = false) {
 
     const textDiv = div.querySelector(".post-text");
     textDiv.textContent = post.content;
-    div.onclick = () => viewThread(post.id);
+    textDiv.onclick = () => viewThread(post.id);
 
     // ★ 追加：アイコンか名前を押したらその人のプロフィールを開く
     div.querySelectorAll('.clickable-user').forEach(el => {
