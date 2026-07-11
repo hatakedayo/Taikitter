@@ -241,7 +241,7 @@ function createPostElement(post, isMainInThread = false) {
 
     const textDiv = div.querySelector(".post-text");
     textDiv.textContent = post.content;
-    textDiv.onclick = () => viewThread(post.id);
+    div.onclick = () => viewThread(post.id);
 
     // ★ 追加：アイコンか名前を押したらその人のプロフィールを開く
     div.querySelectorAll('.clickable-user').forEach(el => {
