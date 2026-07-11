@@ -59,23 +59,28 @@ def init_db():
         c.execute("CREATE TABLE IF NOT EXISTS posts_v6 (id SERIAL PRIMARY KEY, name TEXT, content TEXT, created_at TEXT)")
         c.execute("CREATE TABLE IF NOT EXISTS likes (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
         c.execute("CREATE TABLE IF NOT EXISTS views (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
+        conn.commit() # 一度セーブする
     else:
         c.execute("CREATE TABLE IF NOT EXISTS users_v6 (username TEXT PRIMARY KEY, password TEXT, icon_data BLOB)")
         c.execute("CREATE TABLE IF NOT EXISTS posts_v6 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, content TEXT, created_at TEXT)")
         c.execute("CREATE TABLE IF NOT EXISTS likes (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
         c.execute("CREATE TABLE IF NOT EXISTS views (post_id INTEGER, username TEXT, PRIMARY KEY (post_id, username))")
+        conn.commit()
     
-    # ★ 今までのデータを消さずに「返信先ID」の箱だけを安全に追加する魔法のコード
+    # 1. parent_id の追加（失敗したらリセット）
     try:
         c.execute("ALTER TABLE posts_v6 ADD COLUMN parent_id INTEGER DEFAULT NULL")
+        conn.commit()
     except:
-        pass # すでに追加されている場合はスルーします
-
+        conn.rollback() 
+    
+    # 2. image_url の追加（失敗したらリセット）
     try:
         c.execute("ALTER TABLE posts_v6 ADD COLUMN image_url TEXT DEFAULT NULL")
-    except: pass
-    
-    # ★ ここは設定した友達の日本語名に書き換えてください
+        conn.commit()
+    except:
+        conn.rollback()
+
     friends = [
         ("たいき", "0000"),
         ("たくと", "0000"),
@@ -84,14 +89,15 @@ def init_db():
         ("ゆうせい", "0000"),
         ("わく", "0000"),
     ]
+    
     for username, password in friends:
         try:
-            if DB_URL:
-                c.execute("INSERT INTO users_v6 (username, password) VALUES (%s, %s) ON CONFLICT DO NOTHING", (username, password))
-            else:
-                c.execute("INSERT INTO users_v6 (username, password) VALUES (?, ?) OR IGNORE", (username, password))
-        except: pass
-    conn.commit()
+            if DB_URL: c.execute("INSERT INTO users_v6 (username, password) VALUES (%s, %s) ON CONFLICT DO NOTHING", (username, password))
+            else: c.execute("INSERT INTO users_v6 (username, password) VALUES (?, ?) OR IGNORE", (username, password))
+            conn.commit()
+        except:
+            conn.rollback()
+            
     conn.close()
 
 init_db()
