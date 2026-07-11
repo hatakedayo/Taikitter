@@ -227,8 +227,8 @@ def get_thread(post_id: int, username: str = Depends(get_current_user)):
         conn.close()
         raise HTTPException(status_code=404)
         
-    if DB_URL: c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE parent_id = %s ORDER BY id ASC", (post_id,))
-    else: c.execute("SELECT id, name, content, created_at FROM posts_v6 WHERE parent_id = ? ORDER BY id ASC", (post_id,))
+    if DB_URL: c.execute("SELECT id, name, content, created_at, image_url FROM posts_v6 WHERE parent_id = %s ORDER BY id ASC", (post_id,))
+    else: c.execute("SELECT id, name, content, created_at, image_url FROM posts_v6 WHERE parent_id = ? ORDER BY id ASC", (post_id,))
     replies_data = c.fetchall()
     
     c.execute("SELECT post_id, username FROM likes")
