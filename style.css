@@ -68,4 +68,4 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helve
 .post-input-area { display: flex; gap: 12px; }
 #myIconPostModal { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
 #myIconReplyModal { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
-.post-input-area textarea { width: 100%; border: none; resize: none; font-size: 1.1em; outline: none; }
+.post-input-area textarea {width: 350px; border: none; resize: none; font-size: 1.1em; outline: none; box-sizing: border-box}
