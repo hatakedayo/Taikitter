@@ -197,6 +197,7 @@ function createPostElement(post, isMainInThread = false) {
 
     const div = document.createElement("div");
     div.className = "post" + (isMainInThread ? " main-post-in-thread" : "");
+    div.dataset.id = post.id; // ★追加：箱に見えないゼッケン（ID）を付ける
 
     let likeClass = "action-btn like-btn";
     let heartImgSrc = "/icons/kitsu_gray.svg";
@@ -350,7 +351,7 @@ async function sendReply() {
 async function toggleLike(postId) {
     await fetch(`/posts/${postId}/like`, { method: "POST" });
     if (document.getElementById("view-thread").classList.contains("active")) {
-        const currentPostId = document.querySelector(".main-post-in-thread .reply-btn").onclick.toString().match(/\d+/)[0];
+        const currentPostId = document.querySelector(".main-post-in-thread").dataset.id;
         viewThread(currentPostId);
     } else if (document.getElementById("view-profile").classList.contains("active")) {
         // ★ 追加：プロフィール画面でいいねした時は、そのプロフィール画面を更新する
