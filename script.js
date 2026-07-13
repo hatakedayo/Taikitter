@@ -436,12 +436,12 @@ async function loadNotifications() {
             ? '<span style="color: #f91880; font-size: 1.5em; margin-right: 10px;">❤️</span>' 
             : '<span style="color: #1d9bf0; font-size: 1.5em; margin-right: 10px;">💬</span>';
         
-        const actionText = notif.type === 'like' ? '「きっつ」' : 'さんがあなたのポストに返信しました';
+        const actionText = notif.type === 'like' ? 'さんがあなたのポストにきっつしました' : 'さんがあなたのポストに返信しました';
         
         div.innerHTML = `
             <div style="display: flex; align-items: center; margin-bottom: 8px;">
                 ${iconHtml}
-                <img class="clickable-user" src="/users/${encodeURIComponent(notif.actor)}/icon" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 10px; objetc-fit: cover;" onclick="event.stopPropagation(); viewUserProfile('${notif.actor}')">
+                <img class="clickable-user" src="/users/${encodeURIComponent(notif.actor)}/icon" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 10px; object-fit: cover;" onclick="event.stopPropagation(); viewUserProfile('${notif.actor}')">
                 <span style="font-weight: bold; color: black; margin-right: 5px;">${notif.actor}</span>
                 <span style="color: #536471; font-size: 0.9em;">${actionText}</span>
             </div>
