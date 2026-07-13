@@ -214,6 +214,74 @@ def get_posts(username: str = Depends(get_current_user)):
     conn.close()
     return posts
 
+
+# ★ 新設：自分宛ての通知（いいね・返信）を取得するAPI
+@app.get("/notifications")
+def get_notifications(username: str = Depends(get_current_user)):
+    conn = get_db_connection()
+    c = conn.cursor()
+
+    # 1. 自分の投稿に対する「返信」を検索 (JOINを使って親投稿と結合)
+    if DB_URL:
+        c.execute("""
+            SELECT p2.name, p2.content, p2.created_at, p1.id, p1.content 
+            FROM posts_v6 p1 
+            JOIN posts_v6 p2 ON p1.id = p2.parent_id 
+            WHERE p1.name = %s AND p2.name != %s 
+        """, (username, username))
+    else:
+        c.execute("""
+            SELECT p2.name, p2.content, p2.created_at, p1.id, p1.content 
+            FROM posts_v6 p1 
+            JOIN posts_v6 p2 ON p1.id = p2.parent_id 
+            WHERE p1.name = ? AND p2.name != ? 
+        """, (username, username))
+    replies_data = c.fetchall()
+    
+    # 2. 自分の投稿に対する「いいね」を検索
+    if DB_URL:
+        c.execute("""
+            SELECT l.username, p.id, p.content, p.created_at
+            FROM likes l 
+            JOIN posts_v6 p ON l.post_id = p.id 
+            WHERE p.name = %s AND l.username != %s 
+        """, (username, username))
+    else:
+        c.execute("""
+            SELECT l.username, p.id, p.content, p.created_at
+            FROM likes l 
+            JOIN posts_v6 p ON l.post_id = p.id 
+            WHERE p.name = ? AND l.username != ? 
+        """, (username, username))
+    likes_data = c.fetchall()
+    conn.close()
+
+    # 3. 取得した2種類のデータを「通知」という同じ形に整理して合体させる
+    notifications = []
+    for r in replies_data:
+        notifications.append({
+            "type": "reply",
+            "actor": r[0], # 返信した人
+            "content": r[1], # 返信の内容
+            "post_id": r[3], # 大元の投稿ID
+            "target_content": r[4], # 自分の元の投稿内容
+            "sort_key": r[2] # 時間で並び替えるためのキー
+        })
+        
+    for l in likes_data:
+        notifications.append({
+            "type": "like",
+            "actor": l[0], # いいねした人
+            "post_id": l[1], 
+            "target_content": l[2], 
+            "sort_key": l[3] 
+        })
+        
+    # 最新のものが一番上に来るように並び替え（ソート）
+    notifications.sort(key=lambda x: x["sort_key"], reverse=True)
+    
+    return notifications
+
 # ★ 新機能：特定の投稿とその返信一覧（スレッド）を取得するAPI
 @app.get("/posts/{post_id}/thread")
 def get_thread(post_id: int, username: str = Depends(get_current_user)):

@@ -24,6 +24,7 @@ function switchTab(tabName, targetUser = null) {
     } else if (tabName === 'notifications') {
         document.getElementById('nav-notifications').classList.add('active');
         headerTitle.innerText = '通知';
+        loadNotifications(); // ★ これを追加！
     } else if (tabName === 'profile') {
         // ★ 誰のプロフィールを見るか（指定がなければ自分）
         const viewUser = targetUser || currentLoggedInUser;
@@ -403,4 +404,55 @@ async function savePassword() {
         errorDiv.innerText = data.detail || "エラーが発生しました";
         errorDiv.style.display = "block";
     }
+}
+
+// ★ 新設：通知一覧を読み込んで表示する処理
+async function loadNotifications() {
+    const list = document.getElementById("notifications-list");
+    list.innerHTML = "<div style='text-align:center; padding: 20px; color:#536471;'>読み込み中...</div>";
+    
+    const response = await fetch("/notifications");
+    if (!response.ok) return;
+    const notifications = await response.json();
+    
+    list.innerHTML = "";
+    
+    if (notifications.length === 0) {
+        list.innerHTML = "<div style='text-align:center; padding: 40px; color:#536471;'>まだ通知はありません</div>";
+        return;
+    }
+    
+    notifications.forEach(notif => {
+        const div = document.createElement("div");
+        div.style.padding = "15px 20px";
+        div.style.borderBottom = "1px solid #eff3f4";
+        div.style.cursor = "pointer";
+        
+        // ★ 通知をタップしたら、その投稿のスレッド（詳細画面）に飛ぶようにする
+        div.onclick = () => viewThread(notif.post_id); 
+        
+        // いいねか返信かで、表示するアイコンとテキストを変える
+        const iconHtml = notif.type === 'like' 
+            ? '<span style="color: #f91880; font-size: 1.5em; margin-right: 10px;">❤️</span>' 
+            : '<span style="color: #1d9bf0; font-size: 1.5em; margin-right: 10px;">💬</span>';
+        
+        const actionText = notif.type === 'like' ? 'さんがあなたのポストをいいねしました' : 'さんがあなたのポストに返信しました';
+        
+        div.innerHTML = `
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                ${iconHtml}
+                <img class="clickable-user" src="/users/${encodeURIComponent(notif.actor)}/icon" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 10px;" onclick="event.stopPropagation(); viewUserProfile('${notif.actor}')">
+                <span style="font-weight: bold; color: black; margin-right: 5px;">${notif.actor}</span>
+                <span style="color: #536471; font-size: 0.9em;">${actionText}</span>
+            </div>
+            
+            <div style="color: #536471; font-size: 0.9em; margin-left: 40px; margin-bottom: 8px; padding-left: 10px; border-left: 3px solid #cfd9de;">
+                ${notif.target_content}
+            </div>
+            
+            ${notif.type === 'reply' ? `<div style="margin-left: 40px; color: black;">${notif.content}</div>` : ''}
+        `;
+        
+        list.appendChild(div);
+    });
 }
