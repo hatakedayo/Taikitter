@@ -219,6 +219,7 @@ def get_posts(username: str = Depends(get_current_user)):
 def get_thread(post_id: int, username: str = Depends(get_current_user)):
     conn = get_db_connection()
     c = conn.cursor()
+    
     if DB_URL: c.execute("SELECT id, name, content, created_at, image_url FROM posts_v6 WHERE id = %s", (post_id,))
     else: c.execute("SELECT id, name, content, created_at, image_url FROM posts_v6 WHERE id = ?", (post_id,))
     main_data = c.fetchone()
@@ -230,6 +231,18 @@ def get_thread(post_id: int, username: str = Depends(get_current_user)):
     else: c.execute("SELECT id, name, content, created_at, image_url FROM posts_v6 WHERE parent_id = ? ORDER BY id ASC", (post_id,))
     replies_data = c.fetchall()
     
+    # ★ 新設：スレッドを開いた時に、表示された「すべての投稿（親＋返信）」の閲覧数をカウントする
+    all_posts_in_thread = [main_data] + replies_data
+    for row in all_posts_in_thread:
+        pid, post_author = row[0], row[1]
+        if post_author != username: # 自分の投稿はカウントしない
+            if DB_URL: 
+                c.execute("INSERT INTO views (post_id, username) VALUES (%s, %s) ON CONFLICT DO NOTHING", (pid, username))
+            else: 
+                c.execute("INSERT INTO views (post_id, username) VALUES (?, ?) OR IGNORE", (pid, username))
+    conn.commit() # ★ 閲覧数をデータベースに保存
+    
+    # ここから下は今まで通り、画面に送るデータを整理する処理
     c.execute("SELECT post_id, username FROM likes")
     likes_map = {}
     for pid, uname in c.fetchall(): likes_map.setdefault(pid, []).append(uname)
@@ -247,10 +260,12 @@ def get_thread(post_id: int, username: str = Depends(get_current_user)):
             "is_liked": username in likes_map.get(pid, []),
             "view_count": len([u for u in views_map.get(pid, []) if u != author]),
             "reply_count": replies_map.get(pid, 0),
-            "image_url": row[4] # ★ 追加
+            "image_url": row[4]
         }
+    
     conn.close()
     return {"main_post": format_post(main_data), "replies": [format_post(r) for r in replies_data]}
+
 
 @app.post("/posts")
 def create_post(post: PostData, username: str = Depends(get_current_user)):
